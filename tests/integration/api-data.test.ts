@@ -169,7 +169,21 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  if (server.listening) {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("server.close callback was not invoked within timeout"));
+      }, 5000); // 5 seconds timeout
+      server.close((err?: Error) => {
+        clearTimeout(timeout);
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
 });
 
 describe("API integration using enhanced storage", () => {
