@@ -1,0 +1,199 @@
+# Dependabot configuration for GOFAPS
+# This configuration ensures that all dependencies are kept up to date and secure
+# across multiple package ecosystems
+
+version: 2
+
+# Global settings for all ecosystems
+registries:
+  npm-npmjs:
+    type: npm-registry
+    url: https://registry.npmjs.org
+    
+updates:
+  # ====================
+  # NPM Dependencies (Frontend & Backend)
+  # ====================
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      # Check for updates every day for security patches
+      interval: "daily"
+      time: "03:00"
+      timezone: "America/New_York"
+    # Allow up to 10 open pull requests for npm
+    open-pull-requests-limit: 10
+    # Automatically rebase PRs when they become outdated
+    rebase-strategy: "auto"
+    # Prefixes for commit messages and PR titles
+    commit-message:
+      prefix: "npm"
+      prefix-development: "npm-dev"
+      include: "scope"
+    # Labels for PRs
+    labels:
+      - "dependencies"
+      - "npm"
+      - "automated"
+    # Reviewers (customize with your team members)
+    # reviewers:
+    #   - "team-lead"
+    #   - "security-team"
+    # assignees:
+    #   - "devops-team"
+    # Milestone assignment (optional)
+    # milestone: 1
+    
+    # Version update strategy
+    versioning-strategy: "increase"
+    
+    # Group updates for better management
+    groups:
+      # Group all production dependencies together
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group development dependencies
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group security updates separately for priority
+      security-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      # Group major updates separately for careful review
+      major-updates:
+        update-types:
+          - "major"
+    
+    # Ignore specific packages if needed
+    ignore:
+      # Example: Ignore major updates for stable packages
+      # - dependency-name: "react"
+      #   update-types: ["version-update:semver-major"]
+      # Example: Ignore specific versions
+      # - dependency-name: "express"
+      #   versions: ["5.x"]
+    
+    # Allow specific dependencies to be updated more frequently
+    allow:
+      # Allow all security updates
+      - dependency-type: "all"
+    
+  # ====================
+  # GitHub Actions
+  # ====================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      # Check weekly for GitHub Actions updates
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "ci/cd"
+      - "automated"
+    groups:
+      github-actions-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    
+  # ====================
+  # Docker
+  # ====================
+  # Uncomment if you add Docker support
+  # - package-ecosystem: "docker"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "tuesday"
+  #     time: "03:00"
+  #     timezone: "America/New_York"
+  #   open-pull-requests-limit: 5
+  #   rebase-strategy: "auto"
+  #   commit-message:
+  #     prefix: "docker"
+  #     include: "scope"
+  #   labels:
+  #     - "dependencies"
+  #     - "docker"
+  #     - "automated"
+  
+  # ====================
+  # Terraform (if using IaC)
+  # ====================
+  # - package-ecosystem: "terraform"
+  #   directory: "/terraform"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "wednesday"
+  #     time: "03:00"
+  #     timezone: "America/New_York"
+  #   open-pull-requests-limit: 3
+  #   rebase-strategy: "auto"
+  #   commit-message:
+  #     prefix: "terraform"
+  #     include: "scope"
+  #   labels:
+  #     - "dependencies"
+  #     - "infrastructure"
+  #     - "automated"
+
+# ====================
+# Configuration Notes
+# ====================
+# 
+# Security Best Practices:
+# 1. Daily checks ensure security patches are applied quickly
+# 2. Grouped updates reduce PR noise while maintaining security
+# 3. Separate major version updates for careful review
+# 4. Labels help with PR triage and automation
+# 5. Auto-rebase keeps PRs current and mergeable
+#
+# Customization Guidelines:
+# 1. Add reviewers and assignees for your team structure
+# 2. Adjust schedules based on your deployment cycles
+# 3. Configure ignore rules for packages requiring manual updates
+# 4. Set up milestone tracking if using project management
+# 5. Add more ecosystems as your infrastructure evolves
+#
+# For Government/Enterprise Deployments:
+# 1. Consider more frequent security checks (daily)
+# 2. Set up required reviews for production dependencies
+# 3. Implement separate test environments for updates
+# 4. Document compliance requirements for dependency updates
+# 5. Maintain audit trail of all dependency changes
+#
+# Integration with CI/CD:
+# 1. Ensure automated tests run on all Dependabot PRs
+# 2. Require security scans before merging
+# 3. Set up auto-merge for patch updates after tests pass
+# 4. Configure deployment automation for approved updates
+# 5. Monitor for breaking changes in staging environments
+#
+# Monitoring and Alerts:
+# 1. Subscribe to GitHub notifications for Dependabot alerts
+# 2. Set up Slack/Teams integration for security updates
+# 3. Review Dependabot dashboard weekly
+# 4. Track metrics on time-to-update for security patches
+# 5. Maintain documentation of dependency update procedures
+#
+# For more information:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file

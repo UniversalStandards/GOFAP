@@ -1,0 +1,76 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+package-lock.json.backup
+
+# Build output
+dist
+build
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Testing
+coverage
+.nyc_output
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+tests
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+.circleci
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Temporary
+tmp
+temp
+*.tmp
+
+# Deployment
+nginx.conf
+ecosystem.config.js
+gofaps.service
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Backup
+*.tar.gz
+*.bak
+*.backup
+
+# PM2
+.pm2
