@@ -103,6 +103,7 @@ The platform is designed to integrate with multiple payment processors:
 - **Build Process**: Separate client and server builds with esbuild for server bundling
 - **Environment Configuration**: Environment-specific settings for database and auth
 - **Code Quality**: TypeScript strict mode with comprehensive type checking
+- **Primary Hosting Target**: AWS EC2 with Nginx + PM2 as the recommended production stack (see `DEPLOYMENT_README.md` and `EC2_DEPLOYMENT_GUIDE.md` for end-to-end steps)
 
 ## External Dependencies
 

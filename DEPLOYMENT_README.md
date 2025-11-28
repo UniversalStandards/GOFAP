@@ -2,6 +2,8 @@
 
 Quick reference for deploying GOFAPS in different environments.
 
+**Production hosting decision:** We recommend AWS EC2 as the primary target (Nginx + PM2) for predictable networking, SSL termination, and compatibility with the provided deployment scripts. Lightsail can work for smaller pilots, but EC2 is the maintained path described below.
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)
