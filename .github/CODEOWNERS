@@ -1,0 +1,7 @@
+* @gofaps-admins
+
+/.github/ @gofaps-admins
+/server/ @gofaps-backend
+/client/ @gofaps-frontend
+/shared/ @gofaps-backend
+/tests/ @gofaps-backend
