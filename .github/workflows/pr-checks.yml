@@ -99,7 +99,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload artifact to Azure Blob Storage
-        if: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING != '' && secrets.AZURE_STORAGE_CONTAINER != '' }}
+        if: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING && secrets.AZURE_STORAGE_CONTAINER }}
         uses: azure/CLI@v2
         env:
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
