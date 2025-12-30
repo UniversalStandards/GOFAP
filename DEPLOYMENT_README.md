@@ -10,6 +10,7 @@ Quick reference for deploying GOFAPS in different environments.
 - [Development Setup](#development-setup)
 - [Production Deployment](#production-deployment)
 - [Docker Deployment](#docker-deployment)
+- [Azure Container Registry (ACR) + GitHub Actions](#azure-container-registry-acr--github-actions)
 - [AWS EC2 Deployment](#aws-ec2-deployment)
 - [Monitoring and Maintenance](#monitoring-and-maintenance)
 - [Troubleshooting](#troubleshooting)
@@ -165,6 +166,62 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 ---
+
+## Azure Container Registry (ACR) + GitHub Actions
+
+This repository ships with GitHub Actions workflows that build Docker images, scan them with Trivy, and push environment-specific tags to Azure Container Registry (ACR).
+
+### Create the ACR
+
+Use Azure CLI to provision a registry (example values shown):
+
+```bash
+az group create --name gofap-rg --location eastus
+az acr create --name <acr-name> --resource-group gofap-rg --sku Standard
+```
+
+### Configure GitHub OIDC + Secrets
+
+The workflows use Azure OIDC authentication. Create a federated credential for your GitHub repository and store these secrets:
+
+| Secret | Description |
+| --- | --- |
+| `AZURE_CLIENT_ID` | Service principal or app registration client ID |
+| `AZURE_TENANT_ID` | Azure AD tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
+| `ACR_NAME` | Azure Container Registry name (without `.azurecr.io`) |
+
+### Build and Push Workflow
+
+Workflow: `.github/workflows/container-image.yml`
+
+- Triggers on `main` pushes and manual runs.
+- Pushes environment-specific tags to ACR.
+- Scans the pushed image with Trivy (fails on HIGH/CRITICAL vulnerabilities).
+
+### Tag Conventions
+
+Images are tagged per environment:
+
+- `dev-<short-sha>` and `dev-latest`
+- `staging-<short-sha>` and `staging-latest`
+- `prod-<short-sha>` and `prod-latest`
+
+### Promotion Flow
+
+Workflow: `.github/workflows/promote-image.yml`
+
+1. Build in `dev` on `main` or manually with `container-image.yml`.
+2. Promote a known-good tag using the promotion workflow:
+   - `source_tag` example: `dev-abc1234`
+   - `target_environment` example: `staging` or `prod`
+3. The promotion workflow retags and pushes:
+   - `staging-abc1234` + `staging-latest`
+   - `prod-abc1234` + `prod-latest`
+
+### Optional: Microsoft Defender for Cloud
+
+If Defender for Cloud is enabled for ACR, it will also scan images in the registry. Trivy remains the CI gate for build-time vulnerability checks.
 
 ## AWS EC2 Deployment
 
