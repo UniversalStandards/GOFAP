@@ -29,7 +29,16 @@ module.exports = {
       version: 'detect',
     },
   },
-  ignorePatterns: ['dist/', 'node_modules/', 'public/', '*.config.ts', '*.config.js', '**/*.test.ts', '**/*.test.tsx', 'vitest.setup.ts'],
+  ignorePatterns: [
+    'dist/',
+    'node_modules/',
+    'public/',
+    '*.config.ts',
+    '*.config.js',
+    '**/*.test.ts',
+    '**/*.test.tsx',
+    'vitest.setup.ts',
+  ],
   rules: {
     'react/react-in-jsx-scope': 'off',
     'import/extensions': [
