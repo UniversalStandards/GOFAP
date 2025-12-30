@@ -17,7 +17,7 @@ module.exports = {
   },
   // Note: Only @typescript-eslint plugin is explicitly listed here.
   // The react, react-hooks, import, and jsx-a11y plugins are automatically
-  // included by the airbnb and airbnb/hooks extends configurations.
+  // included by the airbnb, airbnb-typescript, and airbnb/hooks extends configurations.
   plugins: ['@typescript-eslint'],
   extends: [
     'airbnb',
