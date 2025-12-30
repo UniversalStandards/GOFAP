@@ -15,7 +15,7 @@ module.exports = {
       jsx: true,
     },
   },
-  plugins: ['@typescript-eslint', 'react', 'react-hooks', 'import', 'jsx-a11y'],
+  plugins: ['@typescript-eslint'],
   extends: [
     'airbnb',
     'airbnb-typescript',
