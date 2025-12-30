@@ -100,7 +100,7 @@ jobs:
 
       - name: Upload artifact to Azure Blob Storage
         if: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING && secrets.AZURE_STORAGE_CONTAINER }}
-        uses: azure/CLI@v2
+        uses: azure/cli@v1
         env:
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
