@@ -15,6 +15,9 @@ module.exports = {
       jsx: true,
     },
   },
+  // Note: Only @typescript-eslint plugin is explicitly listed here.
+  // The react, react-hooks, import, and jsx-a11y plugins are automatically
+  // included by the airbnb and airbnb/hooks extends configurations.
   plugins: ['@typescript-eslint'],
   extends: [
     'airbnb',
@@ -26,7 +29,7 @@ module.exports = {
       version: 'detect',
     },
   },
-  ignorePatterns: ['dist/', 'node_modules/', 'public/'],
+  ignorePatterns: ['dist/', 'node_modules/', 'public/', '*.config.ts', '*.config.js', '**/*.test.ts', '**/*.test.tsx', 'vitest.setup.ts'],
   rules: {
     'react/react-in-jsx-scope': 'off',
     'import/extensions': [
