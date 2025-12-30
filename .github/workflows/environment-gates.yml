@@ -1,0 +1,34 @@
+name: Environment Gates
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-dev:
+    name: Deploy to dev
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Confirm dev deployment gate
+        run: echo "Dev deployment gate reached."
+
+  deploy-staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    environment: staging
+    needs: deploy-dev
+    steps:
+      - name: Confirm staging deployment gate
+        run: echo "Staging deployment gate reached."
+
+  deploy-production:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-staging
+    steps:
+      - name: Confirm production deployment gate
+        run: echo "Production deployment gate reached."
