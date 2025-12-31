@@ -27,7 +27,7 @@ module.exports = {
       version: 'detect',
     },
   },
-  ignorePatterns: ['dist/', 'node_modules/', 'public/'],
+  ignorePatterns: ['dist/', 'node_modules/', 'public/', '.eslintrc.cjs'],
   rules: {
     'react/react-in-jsx-scope': 'off',
     'import/extensions': [
