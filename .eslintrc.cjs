@@ -17,6 +17,9 @@ module.exports = {
     },
   },
   plugins: ['@typescript-eslint', 'react', 'react-hooks', 'import', 'jsx-a11y'],
+  extends: [
+    'airbnb',
+    'airbnb-typescript',
   // Note: Only @typescript-eslint plugin is explicitly listed here.
   // The react, react-hooks, import, and jsx-a11y plugins are automatically
   // included by the airbnb, airbnb-typescript, and airbnb/hooks extends configurations.
@@ -33,6 +36,7 @@ module.exports = {
       version: 'detect',
     },
   },
+  ignorePatterns: ['dist/', 'node_modules/', 'public/', '.eslintrc.cjs'],
   ignorePatterns: ['dist/', 'node_modules/', 'public/'],
   ignorePatterns: [
     'dist/',
