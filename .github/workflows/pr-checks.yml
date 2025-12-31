@@ -107,7 +107,6 @@ jobs:
         with:
           inlineScript: |
             az storage blob upload \
-              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
               --container-name "$AZURE_STORAGE_CONTAINER" \
               --name "builds/${{ github.sha }}.tar.gz" \
               --file "gofap-build-${{ github.sha }}.tar.gz" \
