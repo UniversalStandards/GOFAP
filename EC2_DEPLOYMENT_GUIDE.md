@@ -1,6 +1,6 @@
 # GOFAPS EC2 Deployment Guide
 
-Complete step-by-step guide for deploying GOFAPS to Amazon Linux 2 EC2 instance.
+Complete step-by-step guide for deploying GOFAPS to Amazon Linux 2 EC2 instance. This is the recommended production hosting path over AWS Lightsail because it aligns with the existing Nginx/PM2 scripts and offers more flexible networking controls.
 
 ## Prerequisites
 
