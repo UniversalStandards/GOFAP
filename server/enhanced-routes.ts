@@ -106,9 +106,25 @@ export function registerEnhancedRoutes(app: Express) {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      // In production, this should call the provider's API to set PIN
-      // For now, we just acknowledge the request
-      res.json({ success: true, message: "PIN set successfully" });
+      // Get the payment provider service
+      const user = await enhancedStorage.getUser(userId);
+      if (!user?.organizationId) {
+        return res.status(400).json({ message: "User not associated with an organization" });
+      }
+      
+      const provider = serviceRegistry.getService(user.organizationId, 'payment', card.provider);
+      
+      // In production, call the provider's API to set PIN
+      // Example: if (provider && provider.setCardPIN) {
+      //   await provider.setCardPIN(card.externalCardId, pin);
+      // }
+      
+      // For now, acknowledge the request
+      // TODO: Implement actual PIN setting via payment provider API
+      res.json({ 
+        success: true, 
+        message: "PIN setting is handled by the payment provider. Please contact support for PIN management." 
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to set PIN" });
     }
@@ -183,12 +199,13 @@ export function registerEnhancedRoutes(app: Express) {
       };
       
       // Store transfer
+      const transferStatus = requiresApproval ? 'pending' : 'approved';
       await enhancedStorage.createEnhancedTransaction({
         organizationId: user.organizationId,
         paymentType: 'ach',
         amount: amount.toString(),
         currency: 'USD',
-        status: transfer.status as any,
+        status: transferStatus as "pending" | "approved",
         type: 'debit',
         provider: 'dwolla',
         description,
@@ -765,11 +782,24 @@ export function registerEnhancedRoutes(app: Express) {
         return res.status(400).json({ message: "User not associated with an organization" });
       }
       
+      // Validate account number format (basic validation)
+      if (!accountNumber || accountNumber.length < 4 || accountNumber.length > 17) {
+        return res.status(400).json({ message: "Invalid account number format" });
+      }
+      
+      // Validate routing number (US format)
+      if (!routingNumber || !/^\d{9}$/.test(routingNumber)) {
+        return res.status(400).json({ message: "Invalid routing number format" });
+      }
+      
+      // TODO: In production, encrypt the account number before storage
+      // Example: const encryptedAccountNumber = await encryptSensitiveData(accountNumber);
+      
       // Create bank account for direct deposit
       const account = await enhancedStorage.createBankAccount({
         organizationId: user.organizationId,
         accountName: accountName || `${user.firstName} ${user.lastName} Direct Deposit`,
-        accountNumber, // Should be encrypted in production
+        accountNumber, // TODO: Should be encrypted in production with proper key management
         routingNumber,
         bankName,
         accountType,

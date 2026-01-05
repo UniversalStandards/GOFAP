@@ -757,6 +757,7 @@ export class EnhancedDatabaseStorage
       .where(
         and(
           eq(enhancedTransactions.organizationId, organizationId),
+          // Type assertion needed as provider is a string parameter but schema expects enum
           eq(enhancedTransactions.provider, provider as any)
         )
       )
