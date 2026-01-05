@@ -142,8 +142,8 @@ export class EmployeeVerificationService {
         }
         
         successCount++;
-      } catch (error) {
-        errors.push(`Row ${i + 1}: ${error.message}`);
+      } catch (error: any) {
+        errors.push(`Row ${i + 1}: ${error?.message || 'Unknown error'}`);
       }
     }
     
