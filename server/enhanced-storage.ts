@@ -757,7 +757,7 @@ export class EnhancedDatabaseStorage
       .where(
         and(
           eq(enhancedTransactions.organizationId, organizationId),
-          eq(enhancedTransactions.provider, provider)
+          eq(enhancedTransactions.provider, provider as any)
         )
       )
       .orderBy(desc(enhancedTransactions.createdAt));
@@ -842,7 +842,8 @@ export class EnhancedDatabaseStorage
     const records = await this.getComplianceRecords(organizationId);
     
     const statusBreakdown = records.reduce((acc, record) => {
-      acc[record.status] = (acc[record.status] || 0) + 1;
+      const status = record.status || 'unknown';
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -865,9 +866,9 @@ export class EnhancedDatabaseStorage
     const allGrants = await this.getGrants(organizationId);
     const activeGrants = await this.getActiveGrants(organizationId);
 
-    const totalGrantAmount = allGrants.reduce((sum, g) => sum + parseFloat(g.amount), 0);
-    const totalReceived = allGrants.reduce((sum, g) => sum + parseFloat(g.amountReceived), 0);
-    const totalSpent = allGrants.reduce((sum, g) => sum + parseFloat(g.amountSpent), 0);
+    const totalGrantAmount = allGrants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0);
+    const totalReceived = allGrants.reduce((sum, g) => sum + parseFloat(g.amountReceived || '0'), 0);
+    const totalSpent = allGrants.reduce((sum, g) => sum + parseFloat(g.amountSpent || '0'), 0);
 
     const utilizationRate = totalGrantAmount > 0 ? (totalSpent / totalGrantAmount) * 100 : 0;
 

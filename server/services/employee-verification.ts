@@ -272,6 +272,14 @@ export class EmployeeVerificationService {
     
     return employee || null;
   }
+
+  async getEmployeesByOrganization(organizationId: string): Promise<any[]> {
+    const employeeList = await db.select()
+      .from(employees)
+      .where(eq(employees.organizationId, organizationId));
+    
+    return employeeList;
+  }
 }
 
 export const employeeVerificationService = new EmployeeVerificationService();

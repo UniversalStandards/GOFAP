@@ -349,7 +349,7 @@ export function registerEnhancedRoutes(app: Express) {
           } else {
             await enhancedStorage.updateEnhancedTransaction(transferId, {
               status: 'approved',
-              metadata: transfer.metadata
+              metadata: transfer.metadata as any
             });
             
             res.json({ 
@@ -1105,13 +1105,13 @@ export function registerEnhancedRoutes(app: Express) {
         success: result.success,
         errors: result.errors
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Employee upload error:", error);
-      res.status(500).json({ message: error.message || "Failed to upload employees" });
+      res.status(500).json({ message: error?.message || "Failed to upload employees" });
     }
   });
   
-  // Get all employees for admin
+  // Get all employees for admin (using employee verification service)
   app.get("/api/admin/employees", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1125,7 +1125,8 @@ export function registerEnhancedRoutes(app: Express) {
         return res.status(400).json({ message: "Admin must be associated with an organization" });
       }
       
-      const employees = await enhancedStorage.getEmployees(user.organizationId);
+      // Get employees from employee verification service
+      const employees = await employeeVerificationService.getEmployeesByOrganization(user.organizationId);
       res.json(employees);
     } catch (error) {
       console.error("Get employees error:", error);
