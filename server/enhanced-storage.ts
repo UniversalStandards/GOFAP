@@ -132,6 +132,7 @@ export interface IEnhancedStorage extends IStorage {
   // Enhanced Transaction operations
   getEnhancedTransactions(organizationId: string): Promise<EnhancedTransaction[]>;
   createEnhancedTransaction(transaction: InsertEnhancedTransaction): Promise<EnhancedTransaction>;
+  updateEnhancedTransaction(id: string, transaction: Partial<InsertEnhancedTransaction>): Promise<EnhancedTransaction>;
   getTransactionsByProvider(organizationId: string, provider: string): Promise<EnhancedTransaction[]>;
   getTransactionsByDateRange(organizationId: string, startDate: Date, endDate: Date): Promise<EnhancedTransaction[]>;
   
@@ -738,6 +739,15 @@ export class EnhancedDatabaseStorage
       .values(transaction)
       .returning();
     return newTransaction;
+  }
+
+  async updateEnhancedTransaction(id: string, transaction: Partial<InsertEnhancedTransaction>): Promise<EnhancedTransaction> {
+    const [updated] = await db
+      .update(enhancedTransactions)
+      .set({ ...transaction, updatedAt: new Date() })
+      .where(eq(enhancedTransactions.id, id))
+      .returning();
+    return updated;
   }
 
   async getTransactionsByProvider(organizationId: string, provider: string): Promise<EnhancedTransaction[]> {
