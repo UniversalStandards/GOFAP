@@ -29,7 +29,9 @@ if (isProduction) {
 const app = express();
 
 // Trust proxy (required for AWS Load Balancer, Azure App Service, Cloudflare)
-app.set('trust proxy', 1);
+// In production, specify exact proxy IPs or use more specific configuration
+// For cloud platforms with known proxies, trust level 1 is typically safe
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
 
 // Security headers (Helmet)
 if (isProduction) {

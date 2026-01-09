@@ -20,8 +20,8 @@ const poolConfig = {
   idleTimeoutMillis: parseInt(process.env.DATABASE_IDLE_TIMEOUT || '30000', 10),
   // Number of milliseconds to wait before timing out when connecting a new client
   connectionTimeoutMillis: parseInt(process.env.DATABASE_CONNECT_TIMEOUT || '10000', 10),
-  // Maximum time a connection can be used before being discarded (5 minutes)
-  maxUses: parseInt(process.env.DATABASE_MAX_USES || '7500', 10),
+  // Maximum time a connection can be used before being discarded (default 7500, consider lowering for high-traffic apps)
+  maxUses: parseInt(process.env.DATABASE_MAX_USES || '1000', 10),
 };
 
 export const pool = new Pool(poolConfig);

@@ -121,7 +121,11 @@ export function createChildLogger(context: Record<string, any>) {
  */
 export function httpLoggerMiddleware(req: any, res: any, next: any) {
   const start = Date.now();
-  const correlationId = req.headers['x-correlation-id'] || req.id || Math.random().toString(36).substring(7);
+  // Use crypto.randomUUID() for secure correlation IDs
+  const correlationId = req.headers['x-correlation-id'] || 
+                        (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 
+                         req.id || 
+                         Math.random().toString(36).substring(7));
   
   // Attach correlation ID to request
   req.correlationId = correlationId;
