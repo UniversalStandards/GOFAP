@@ -1,5 +1,8 @@
 name: Deploy to Free Tier (Render + Vercel)
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
