@@ -1,6 +1,6 @@
 # GOFAPS EC2 Deployment Guide
 
-Complete step-by-step guide for deploying GOFAPS to Amazon Linux 2 EC2 instance.
+Complete step-by-step guide for deploying GOFAPS to Amazon Linux 2 EC2 instance. This is the recommended production hosting path over AWS Lightsail because it aligns with the existing Nginx/PM2 scripts and offers more flexible networking controls.
 
 ## Prerequisites
 
@@ -188,11 +188,11 @@ DATABASE_URL=postgresql://username:password@your-rds-endpoint:5432/gofaps
 # Session Secret (generate with: openssl rand -base64 32)
 SESSION_SECRET=your_secure_session_secret_here
 
-# Replit Auth (if using)
-REPLIT_DEPLOYMENT_ID=your_deployment_id
-REPLIT_DB_URL=your_replit_db_url
+# Replit Auth / OIDC configuration
+REPL_ID=your_oidc_client_id
+REPLIT_DOMAINS=finance.example.com
+# Optional: override when using a custom issuer
 ISSUER_URL=https://replit.com/oidc
-REPL_ID=your_repl_id
 
 # Payment Providers (add as needed)
 STRIPE_SECRET_KEY=sk_live_your_stripe_key
@@ -205,6 +205,11 @@ STRIPE_PUBLISHABLE_KEY=pk_live_your_stripe_key
 # SMTP_USER=your_smtp_user
 # SMTP_PASSWORD=your_smtp_password
 ```
+
+**Authentication guidance**
+- Register the application in Replit Auth (or your chosen OIDC provider) with redirect URI `https://<your-domain>/api/callback`.
+- Set `REPLIT_DOMAINS` to every hostname that will front this EC2 deployment (comma separated).
+- If you use a provider other than Replit, replace `ISSUER_URL` with the issuer metadata URL they provide.
 
 **Security**: Set proper permissions
 

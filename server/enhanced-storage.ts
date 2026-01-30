@@ -19,6 +19,18 @@ import {
   procurements,
   citizenServices,
   enhancedTransactions,
+  type Budget,
+  type InsertBudget,
+  type BudgetCategory,
+  type InsertBudgetCategory,
+  type Vendor,
+  type InsertVendor,
+  type Payment,
+  type InsertPayment,
+  type Expense,
+  type InsertExpense,
+  type DigitalWallet,
+  type InsertDigitalWallet,
   type PaymentProvider,
   type InsertPaymentProvider,
   type Integration,
@@ -43,7 +55,7 @@ import {
   type InsertEnhancedTransaction,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, sum, gte, lte, or, like, inArray } from "drizzle-orm";
+import { eq, desc, and, gte, lte, or } from "drizzle-orm";
 import { DatabaseStorage, type IStorage } from "./storage";
 
 export interface IEnhancedStorage extends IStorage {
@@ -120,6 +132,7 @@ export interface IEnhancedStorage extends IStorage {
   // Enhanced Transaction operations
   getEnhancedTransactions(organizationId: string): Promise<EnhancedTransaction[]>;
   createEnhancedTransaction(transaction: InsertEnhancedTransaction): Promise<EnhancedTransaction>;
+  updateEnhancedTransaction(id: string, transaction: Partial<InsertEnhancedTransaction>): Promise<EnhancedTransaction>;
   getTransactionsByProvider(organizationId: string, provider: string): Promise<EnhancedTransaction[]>;
   getTransactionsByDateRange(organizationId: string, startDate: Date, endDate: Date): Promise<EnhancedTransaction[]>;
   
@@ -133,7 +146,136 @@ export interface IEnhancedStorage extends IStorage {
 export class EnhancedDatabaseStorage
   extends DatabaseStorage
   implements IEnhancedStorage {
-  
+
+  // Base storage operations delegated to DatabaseStorage
+  override async getBudgets(organizationId: string): Promise<Budget[]> {
+    return await super.getBudgets(organizationId);
+  }
+
+  override async getBudget(id: string): Promise<Budget | undefined> {
+    return await super.getBudget(id);
+  }
+
+  override async createBudget(budget: InsertBudget): Promise<Budget> {
+    return await super.createBudget(budget);
+  }
+
+  override async updateBudget(
+    id: string,
+    budget: Partial<InsertBudget>
+  ): Promise<Budget> {
+    return await super.updateBudget(id, budget);
+  }
+
+  override async getBudgetCategories(budgetId: string): Promise<BudgetCategory[]> {
+    return await super.getBudgetCategories(budgetId);
+  }
+
+  override async createBudgetCategory(
+    category: InsertBudgetCategory
+  ): Promise<BudgetCategory> {
+    return await super.createBudgetCategory(category);
+  }
+
+  override async getVendors(organizationId: string): Promise<Vendor[]> {
+    return await super.getVendors(organizationId);
+  }
+
+  override async getVendor(id: string): Promise<Vendor | undefined> {
+    return await super.getVendor(id);
+  }
+
+  override async createVendor(vendor: InsertVendor): Promise<Vendor> {
+    return await super.createVendor(vendor);
+  }
+
+  override async updateVendor(
+    id: string,
+    vendor: Partial<InsertVendor>
+  ): Promise<Vendor> {
+    return await super.updateVendor(id, vendor);
+  }
+
+  override async getPayments(organizationId: string): Promise<Payment[]> {
+    return await super.getPayments(organizationId);
+  }
+
+  override async getPayment(id: string): Promise<Payment | undefined> {
+    return await super.getPayment(id);
+  }
+
+  override async createPayment(payment: InsertPayment): Promise<Payment> {
+    return await super.createPayment(payment);
+  }
+
+  override async updatePayment(
+    id: string,
+    payment: Partial<InsertPayment>
+  ): Promise<Payment> {
+    return await super.updatePayment(id, payment);
+  }
+
+  override async getPendingPayments(organizationId: string): Promise<Payment[]> {
+    return await super.getPendingPayments(organizationId);
+  }
+
+  override async getExpenses(organizationId: string): Promise<Expense[]> {
+    return await super.getExpenses(organizationId);
+  }
+
+  override async getExpense(id: string): Promise<Expense | undefined> {
+    return await super.getExpense(id);
+  }
+
+  override async createExpense(expense: InsertExpense): Promise<Expense> {
+    return await super.createExpense(expense);
+  }
+
+  override async updateExpense(
+    id: string,
+    expense: Partial<InsertExpense>
+  ): Promise<Expense> {
+    return await super.updateExpense(id, expense);
+  }
+
+  override async getDigitalWallets(organizationId: string): Promise<DigitalWallet[]> {
+    return await super.getDigitalWallets(organizationId);
+  }
+
+  override async getDigitalWallet(id: string): Promise<DigitalWallet | undefined> {
+    return await super.getDigitalWallet(id);
+  }
+
+  override async createDigitalWallet(wallet: InsertDigitalWallet): Promise<DigitalWallet> {
+    return await super.createDigitalWallet(wallet);
+  }
+
+  override async updateDigitalWallet(
+    id: string,
+    wallet: Partial<InsertDigitalWallet>
+  ): Promise<DigitalWallet> {
+    return await super.updateDigitalWallet(id, wallet);
+  }
+
+  override async getOrganizationStats(
+    organizationId: string
+  ): Promise<{
+    totalBudget: string;
+    monthlyExpenses: string;
+    activeVendors: number;
+    pendingPayments: number;
+  }> {
+    return await super.getOrganizationStats(organizationId);
+  }
+
+  override async getTopVendors(organizationId: string): Promise<Vendor[]> {
+    return await super.getTopVendors(organizationId);
+  }
+
+  override async getRecentActivity(organizationId: string): Promise<any[]> {
+    return await super.getRecentActivity(organizationId);
+  }
+
   // Payment Provider operations
   async getPaymentProviders(organizationId: string): Promise<PaymentProvider[]> {
     return await db
@@ -599,6 +741,15 @@ export class EnhancedDatabaseStorage
     return newTransaction;
   }
 
+  async updateEnhancedTransaction(id: string, transaction: Partial<InsertEnhancedTransaction>): Promise<EnhancedTransaction> {
+    const [updated] = await db
+      .update(enhancedTransactions)
+      .set({ ...transaction, updatedAt: new Date() })
+      .where(eq(enhancedTransactions.id, id))
+      .returning();
+    return updated;
+  }
+
   async getTransactionsByProvider(organizationId: string, provider: string): Promise<EnhancedTransaction[]> {
     return await db
       .select()
@@ -606,7 +757,8 @@ export class EnhancedDatabaseStorage
       .where(
         and(
           eq(enhancedTransactions.organizationId, organizationId),
-          eq(enhancedTransactions.provider, provider)
+          // Type assertion needed as provider is a string parameter but schema expects enum
+          eq(enhancedTransactions.provider, provider as any)
         )
       )
       .orderBy(desc(enhancedTransactions.createdAt));
@@ -628,64 +780,40 @@ export class EnhancedDatabaseStorage
 
   // Advanced analytics
   async getComprehensiveAnalytics(organizationId: string): Promise<any> {
-    // Comprehensive analytics aggregation
-    const [totalBudget] = await db
-      .select({ total: sum(budgets.totalAmount) })
-      .from(budgets)
-      .where(eq(budgets.organizationId, organizationId));
+    const [orgBudgets, orgExpenses, orgPayments, orgVendors, orgGrants, orgAssets] = await Promise.all([
+      super.getBudgets(organizationId),
+      super.getExpenses(organizationId),
+      super.getPayments(organizationId),
+      super.getVendors(organizationId),
+      this.getGrants(organizationId),
+      this.getAssets(organizationId),
+    ]);
 
-    const [totalExpenses] = await db
-      .select({ total: sum(expenses.amount) })
-      .from(expenses)
-      .where(eq(expenses.organizationId, organizationId));
+    const parseAmount = (value: string | null | undefined) => parseFloat(value ?? '0');
 
-    const [totalPayments] = await db
-      .select({ total: sum(payments.amount) })
-      .from(payments)
-      .where(eq(payments.organizationId, organizationId));
+    const totalBudget = orgBudgets.reduce((sum, budget) => sum + parseAmount(budget.totalAmount), 0);
+    const totalExpenses = orgExpenses.reduce((sum, expense) => sum + parseAmount(expense.amount), 0);
+    const totalPayments = orgPayments.reduce((sum, payment) => sum + parseAmount(payment.amount), 0);
 
-    const activeVendors = await db
-      .select({ count: sql`count(*)` })
-      .from(vendors)
-      .where(
-        and(
-          eq(vendors.organizationId, organizationId),
-          eq(vendors.status, 'active')
-        )
-      );
-
-    const activeGrants = await db
-      .select({ count: sql`count(*)` })
-      .from(grants)
-      .where(
-        and(
-          eq(grants.organizationId, organizationId),
-          eq(grants.status, 'active')
-        )
-      );
-
-    const totalAssets = await db
-      .select({ 
-        count: sql`count(*)`,
-        value: sum(assets.currentValue)
-      })
-      .from(assets)
-      .where(eq(assets.organizationId, organizationId));
+    const activeVendors = orgVendors.filter(vendor => vendor.status === 'active').length;
+    const activeGrants = orgGrants.filter(grant => grant.status === 'active').length;
+    const totalAssetsCount = orgAssets.length;
+    const totalAssetValue = orgAssets.reduce((sum, asset) => sum + parseAmount(asset.currentValue), 0);
 
     return {
       financial: {
-        totalBudget: totalBudget?.total || '0',
-        totalExpenses: totalExpenses?.total || '0',
-        totalPayments: totalPayments?.total || '0',
+        totalBudget: totalBudget.toFixed(2),
+        totalExpenses: totalExpenses.toFixed(2),
+        totalPayments: totalPayments.toFixed(2),
       },
       operational: {
-        activeVendors: activeVendors[0]?.count || 0,
-        activeGrants: activeGrants[0]?.count || 0,
+        activeVendors,
+        activeGrants,
         totalAssets: {
-          count: totalAssets[0]?.count || 0,
-          value: totalAssets[0]?.value || '0'
-        }
-      }
+          count: totalAssetsCount,
+          value: totalAssetValue.toFixed(2),
+        },
+      },
     };
   }
 
@@ -715,7 +843,8 @@ export class EnhancedDatabaseStorage
     const records = await this.getComplianceRecords(organizationId);
     
     const statusBreakdown = records.reduce((acc, record) => {
-      acc[record.status] = (acc[record.status] || 0) + 1;
+      const status = record.status || 'unknown';
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -738,9 +867,9 @@ export class EnhancedDatabaseStorage
     const allGrants = await this.getGrants(organizationId);
     const activeGrants = await this.getActiveGrants(organizationId);
 
-    const totalGrantAmount = allGrants.reduce((sum, g) => sum + parseFloat(g.amount), 0);
-    const totalReceived = allGrants.reduce((sum, g) => sum + parseFloat(g.amountReceived), 0);
-    const totalSpent = allGrants.reduce((sum, g) => sum + parseFloat(g.amountSpent), 0);
+    const totalGrantAmount = allGrants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0);
+    const totalReceived = allGrants.reduce((sum, g) => sum + parseFloat(g.amountReceived || '0'), 0);
+    const totalSpent = allGrants.reduce((sum, g) => sum + parseFloat(g.amountSpent || '0'), 0);
 
     const utilizationRate = totalGrantAmount > 0 ? (totalSpent / totalGrantAmount) * 100 : 0;
 
