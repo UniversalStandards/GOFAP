@@ -1,7 +1,19 @@
 name: Deploy to Free Tier (Render + Vercel)
 
 permissions:
-  contents: read
+  contents: write
+  actions: write
+  checks: write
+  deployments: write
+  id-token: write
+  pages: write
+  pull-requests: write
+  issues: write
+  attestations: write
+  statuses: write
+  models: read
+  artifact-metadata: write
+  security-events: write
 
 on:
   push:
