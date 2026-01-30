@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import type { Budget, Vendor, Payment, Expense, DigitalWallet } from "@shared/schema";
+import type {
+  Budget,
+  Vendor,
+  Payment,
+  Expense,
+  DigitalWallet,
+  Grant,
+  Asset,
+} from "@shared/schema";
 
 vi.mock("../../server/db", () => ({ db: {} }));
 
@@ -56,6 +64,22 @@ const samplePayments: Payment[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: "payment-2",
+    amount: "5000",
+    description: "Maintenance",
+    type: "vendor",
+    status: "completed",
+    vendorId: "vendor-1",
+    budgetCategoryId: null,
+    organizationId: "org-1",
+    dueDate: new Date().toISOString(),
+    processedDate: new Date().toISOString(),
+    createdBy: "user-1",
+    approvedBy: "user-1",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 const sampleExpenses: Expense[] = [
@@ -87,6 +111,74 @@ const sampleWallets: DigitalWallet[] = [
     isActive: true,
     organizationId: "org-1",
     externalAccountId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const sampleGrants: Grant[] = [
+  {
+    id: "grant-1",
+    grantorName: "Federal Infrastructure Agency",
+    grantName: "Infrastructure Improvement",
+    grantNumber: "GR-2024-01",
+    amount: "75000",
+    amountReceived: "50000",
+    amountSpent: "25000",
+    status: "active",
+    managedBy: "user-1",
+    organizationId: "org-1",
+    applicationDate: new Date().toISOString(),
+    startDate: new Date().toISOString(),
+    endDate: new Date().toISOString(),
+    purpose: "Public infrastructure upgrades",
+    restrictions: null,
+    reportingRequirements: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const sampleAssets: Asset[] = [
+  {
+    id: "asset-1",
+    organizationId: "org-1",
+    assetTag: "A-1001",
+    name: "Fleet Vehicle",
+    category: "vehicle",
+    description: "Municipal service truck",
+    purchasePrice: "45000",
+    currentValue: "30000",
+    status: "active",
+    location: "Depot",
+    assignedTo: null,
+    purchaseDate: new Date().toISOString(),
+    warrantyExpiry: null,
+    maintenanceSchedule: null,
+    depreciationMethod: null,
+    usefulLife: null,
+    vendorId: "vendor-1",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "asset-2",
+    organizationId: "org-1",
+    assetTag: "A-1002",
+    name: "Server Equipment",
+    category: "technology",
+    description: "Data center hardware",
+    purchasePrice: "25000",
+    currentValue: "15000",
+    status: "maintenance",
+    location: "IT Closet",
+    assignedTo: null,
+    purchaseDate: new Date().toISOString(),
+    warrantyExpiry: null,
+    maintenanceSchedule: null,
+    depreciationMethod: null,
+    usefulLife: null,
+    vendorId: "vendor-1",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -160,5 +252,35 @@ describe("EnhancedDatabaseStorage", () => {
     const result = await enhancedStorage.getDigitalWallets("org-1");
     expect(spy).toHaveBeenCalledWith("org-1");
     expect(result).toEqual(sampleWallets);
+  });
+
+  it("aggregates comprehensive analytics from persisted data", async () => {
+    const { enhancedStorage, EnhancedDatabaseStorage } = await import("../../server/enhanced-storage");
+    const { DatabaseStorage } = await import("../../server/storage");
+
+    vi.spyOn(DatabaseStorage.prototype, "getBudgets").mockResolvedValue(sampleBudgets);
+    vi.spyOn(DatabaseStorage.prototype, "getExpenses").mockResolvedValue(sampleExpenses);
+    vi.spyOn(DatabaseStorage.prototype, "getPayments").mockResolvedValue(samplePayments);
+    vi.spyOn(DatabaseStorage.prototype, "getVendors").mockResolvedValue(sampleVendors);
+    vi.spyOn(EnhancedDatabaseStorage.prototype, "getGrants").mockResolvedValue(sampleGrants);
+    vi.spyOn(EnhancedDatabaseStorage.prototype, "getAssets").mockResolvedValue(sampleAssets);
+
+    const analytics = await enhancedStorage.getComprehensiveAnalytics("org-1");
+
+    expect(analytics).toEqual({
+      financial: {
+        totalBudget: "100000.00",
+        totalExpenses: "5000.00",
+        totalPayments: "20000.00",
+      },
+      operational: {
+        activeVendors: 1,
+        activeGrants: 1,
+        totalAssets: {
+          count: 2,
+          value: "45000.00",
+        },
+      },
+    });
   });
 });

@@ -10,7 +10,11 @@ import type {
   DigitalWallet,
 } from "@shared/schema";
 
-vi.mock("../../server/db", () => ({ db: {} }));
+vi.mock("../../server/db", () => ({ db: {}, pool: { end: vi.fn() } }));
+
+vi.mock("../../server/enhanced-routes", () => ({
+  registerEnhancedRoutes: vi.fn(),
+}));
 
 const sampleUser = { id: "user-1", organizationId: "org-1" };
 const sampleBudgets: Budget[] = [
@@ -143,24 +147,33 @@ vi.mock("../../server/websocket", () => ({
   wsManager: { initialize: vi.fn() },
 }));
 
-vi.mock("../../server/enhanced-storage", () => ({
-  enhancedStorage: {
-    getUser: vi.fn(async () => sampleUser),
-    getBudgets: vi.fn(async () => sampleBudgets),
-    getVendors: vi.fn(async () => sampleVendors),
-    getPayments: vi.fn(async () => samplePayments),
-    getPendingPayments: vi.fn(async () => samplePayments.filter((p) => p.status === "pending")),
-    getExpenses: vi.fn(async () => sampleExpenses),
-    getDigitalWallets: vi.fn(async () => sampleWallets),
-    getOrganizationStats: vi.fn(async () => sampleStats),
-    getTopVendors: vi.fn(async () => sampleVendors),
-    getRecentActivity: vi.fn(async () => sampleActivity),
-  },
-}));
-
 let server: Server;
+let storageSpies: Array<ReturnType<typeof vi.spyOn>> = [];
 
 beforeAll(async () => {
+  const { DatabaseStorage } = await import("../../server/storage");
+
+  storageSpies = [
+    vi.spyOn(DatabaseStorage.prototype, "getUser").mockResolvedValue(sampleUser as any),
+    vi.spyOn(DatabaseStorage.prototype, "getBudgets").mockResolvedValue(sampleBudgets as any),
+    vi.spyOn(DatabaseStorage.prototype, "getVendors").mockResolvedValue(sampleVendors as any),
+    vi.spyOn(DatabaseStorage.prototype, "getPayments").mockResolvedValue(samplePayments as any),
+    vi
+      .spyOn(DatabaseStorage.prototype, "getPendingPayments")
+      .mockResolvedValue(samplePayments.filter((p) => p.status === "pending") as any),
+    vi.spyOn(DatabaseStorage.prototype, "getExpenses").mockResolvedValue(sampleExpenses as any),
+    vi
+      .spyOn(DatabaseStorage.prototype, "getDigitalWallets")
+      .mockResolvedValue(sampleWallets as any),
+    vi
+      .spyOn(DatabaseStorage.prototype, "getOrganizationStats")
+      .mockResolvedValue(sampleStats as any),
+    vi.spyOn(DatabaseStorage.prototype, "getTopVendors").mockResolvedValue(sampleVendors as any),
+    vi
+      .spyOn(DatabaseStorage.prototype, "getRecentActivity")
+      .mockResolvedValue(sampleActivity as any),
+  ];
+
   const { registerRoutes } = await import("../../server/routes");
   const app = express();
   app.use(express.json());
@@ -169,6 +182,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  storageSpies.forEach((spy) => spy.mockRestore());
+  storageSpies = [];
+
   if (server.listening) {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {

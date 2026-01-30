@@ -1,0 +1,81 @@
+repository:
+  default_branch: main
+
+branches:
+  - name: main
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - check
+          - test
+          - lint
+          - build-artifacts
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+  name: GOFAP
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: true
+  delete_branch_on_merge: true
+
+branches:
+  - name: main
+    protection:
+      enforce_admins: true
+      required_conversation_resolution: true
+      required_signatures: true
+      required_status_checks:
+        strict: true
+        contexts:
+          - "CI / Typecheck"
+      required_pull_request_reviews:
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        required_approving_review_count: 2
+      restrictions: null
+      allow_force_pushes: false
+      allow_deletions: false
+
+  - name: release/*
+    protection:
+      enforce_admins: true
+      required_conversation_resolution: true
+      required_signatures: true
+      required_status_checks:
+        strict: true
+        contexts:
+          - "CI / Typecheck"
+      required_pull_request_reviews:
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        required_approving_review_count: 2
+      restrictions: null
+      allow_force_pushes: false
+      allow_deletions: false
+
+environments:
+  - name: dev
+    reviewers:
+      teams:
+        - gofaps-devs
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+
+  - name: staging
+    reviewers:
+      teams:
+        - gofaps-release-managers
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+
+  - name: production
+    reviewers:
+      teams:
+        - gofaps-release-managers
+    deployment_branch_policy:
+      protected_branches: true
+      custom_branch_policies: false
+    wait_timer: 10
