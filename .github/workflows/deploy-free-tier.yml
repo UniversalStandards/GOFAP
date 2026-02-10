@@ -1,0 +1,123 @@
+name: Deploy to Free Tier (Render + Vercel)
+
+permissions:
+  contents: write
+  actions: write
+  checks: write
+  deployments: write
+  id-token: write
+  pages: write
+  pull-requests: write
+  issues: write
+  attestations: write
+  statuses: write
+  models: read
+  artifact-metadata: write
+  security-events: write
+
+on:
+  push:
+    branches:
+      - main
+      - free-tier-deploy
+  workflow_dispatch:
+
+jobs:
+  # Deploy Backend to Render
+  deploy-backend:
+    name: Deploy Backend to Render
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger Render Deployment
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
+            curl -X POST "$RENDER_DEPLOY_HOOK"
+            echo "✅ Render deployment triggered"
+          else
+            echo "⚠️ RENDER_DEPLOY_HOOK not set. Skipping Render deployment."
+            echo "Add deploy hook from Render dashboard: Settings → Deploy Hook"
+          fi
+
+  # Deploy Frontend to Vercel
+  deploy-frontend:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            vercel --prod --token=$VERCEL_TOKEN --yes
+            echo "✅ Vercel deployment complete"
+          else
+            echo "⚠️ VERCEL_TOKEN not set. Skipping Vercel deployment."
+            echo "Vercel will auto-deploy on Git push if GitHub integration is enabled."
+          fi
+
+  # Health Check
+  health-check:
+    name: Verify Deployments
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+    steps:
+      - name: Wait for services to start
+        run: sleep 30
+
+      - name: Check Backend Health
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL || 'https://gofaps-api.onrender.com' }}
+        run: |
+          echo "Checking backend health at $BACKEND_URL/health"
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/health" || echo "000")
+          if [ "$response" = "200" ]; then
+            echo "✅ Backend is healthy (HTTP $response)"
+          else
+            echo "⚠️ Backend health check returned HTTP $response"
+            echo "This is normal if Render service is spinning up from cold start."
+            echo "Try again in 30-60 seconds."
+          fi
+
+      - name: Check Frontend
+        env:
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'https://gofaps.vercel.app' }}
+        run: |
+          echo "Checking frontend at $FRONTEND_URL"
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || echo "000")
+          if [ "$response" = "200" ]; then
+            echo "✅ Frontend is accessible (HTTP $response)"
+          else
+            echo "❌ Frontend returned HTTP $response"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        run: |
+          echo "### Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 **Frontend:** https://gofaps.vercel.app" >> $GITHUB_STEP_SUMMARY
+          echo "🔧 **Backend:** https://gofaps-api.onrender.com" >> $GITHUB_STEP_SUMMARY
+          echo "❤️ **Health:** https://gofaps-api.onrender.com/health" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** Render free tier spins down after 15 minutes of inactivity." >> $GITHUB_STEP_SUMMARY
+          echo "First request after sleep takes 30-60 seconds." >> $GITHUB_STEP_SUMMARY

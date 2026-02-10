@@ -7,7 +7,6 @@ module.exports = {
   },
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: './tsconfig.eslint.json',
     project: './tsconfig.json',
     tsconfigRootDir: __dirname,
     ecmaVersion: 'latest',
@@ -20,13 +19,6 @@ module.exports = {
   extends: [
     'airbnb',
     'airbnb-typescript',
-  // Note: Only @typescript-eslint plugin is explicitly listed here.
-  // The react, react-hooks, import, and jsx-a11y plugins are automatically
-  // included by the airbnb, airbnb-typescript, and airbnb/hooks extends configurations.
-  plugins: ['@typescript-eslint'],
-  extends: [
-    'airbnb',
-    'airbnb-typescript',
     'airbnb/hooks',
     'plugin:react/recommended',
     'plugin:react-hooks/recommended',
@@ -36,8 +28,6 @@ module.exports = {
       version: 'detect',
     },
   },
-  ignorePatterns: ['dist/', 'node_modules/', 'public/', '.eslintrc.cjs'],
-  ignorePatterns: ['dist/', 'node_modules/', 'public/'],
   ignorePatterns: [
     'dist/',
     'node_modules/',
@@ -47,6 +37,7 @@ module.exports = {
     '**/*.test.ts',
     '**/*.test.tsx',
     'vitest.setup.ts',
+    '.eslintrc.cjs',
   ],
   rules: {
     'react/react-in-jsx-scope': 'off',
