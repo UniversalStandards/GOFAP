@@ -28,7 +28,7 @@ branches:
       allow_force_pushes: false
       allow_deletions: false
 
-  - name: release/*
+  - name: release/**
     protection:
       enforce_admins: true
       required_conversation_resolution: true
