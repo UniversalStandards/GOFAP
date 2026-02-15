@@ -1,0 +1,161 @@
+name: Deploy (Selected Platform)
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Target platform"
+        required: true
+        type: choice
+        options:
+          - upcloud
+          - aws-ec2
+          - azure-vm
+      target_environment:
+        description: "Deployment environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      git_ref:
+        description: "Git ref (branch, tag, or commit SHA) to deploy"
+        required: true
+        default: "main"
+        type: string
+      dry_run:
+        description: "Validate configuration only (no remote deployment)"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.inputs.platform }}-${{ github.event.inputs.target_environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.platform }} (${{ github.event.inputs.target_environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target_environment }}
+
+    steps:
+      - name: Checkout repository metadata
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
+      - name: Validate required deployment secrets
+        env:
+          PLATFORM: ${{ github.event.inputs.platform }}
+          UPCLOUD_DEPLOY_HOST: ${{ secrets.UPCLOUD_DEPLOY_HOST }}
+          UPCLOUD_DEPLOY_USER: ${{ secrets.UPCLOUD_DEPLOY_USER }}
+          UPCLOUD_SSH_PRIVATE_KEY: ${{ secrets.UPCLOUD_SSH_PRIVATE_KEY }}
+          AWS_EC2_DEPLOY_HOST: ${{ secrets.AWS_EC2_DEPLOY_HOST }}
+          AWS_EC2_DEPLOY_USER: ${{ secrets.AWS_EC2_DEPLOY_USER }}
+          AWS_EC2_SSH_PRIVATE_KEY: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
+          AZURE_VM_DEPLOY_HOST: ${{ secrets.AZURE_VM_DEPLOY_HOST }}
+          AZURE_VM_DEPLOY_USER: ${{ secrets.AZURE_VM_DEPLOY_USER }}
+          AZURE_VM_SSH_PRIVATE_KEY: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          case "$PLATFORM" in
+            upcloud)
+              [[ -n "$UPCLOUD_DEPLOY_HOST" ]] || { echo "Missing secret: UPCLOUD_DEPLOY_HOST"; exit 1; }
+              [[ -n "$UPCLOUD_DEPLOY_USER" ]] || { echo "Missing secret: UPCLOUD_DEPLOY_USER"; exit 1; }
+              [[ -n "$UPCLOUD_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: UPCLOUD_SSH_PRIVATE_KEY"; exit 1; }
+              ;;
+            aws-ec2)
+              [[ -n "$AWS_EC2_DEPLOY_HOST" ]] || { echo "Missing secret: AWS_EC2_DEPLOY_HOST"; exit 1; }
+              [[ -n "$AWS_EC2_DEPLOY_USER" ]] || { echo "Missing secret: AWS_EC2_DEPLOY_USER"; exit 1; }
+              [[ -n "$AWS_EC2_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: AWS_EC2_SSH_PRIVATE_KEY"; exit 1; }
+              ;;
+            azure-vm)
+              [[ -n "$AZURE_VM_DEPLOY_HOST" ]] || { echo "Missing secret: AZURE_VM_DEPLOY_HOST"; exit 1; }
+              [[ -n "$AZURE_VM_DEPLOY_USER" ]] || { echo "Missing secret: AZURE_VM_DEPLOY_USER"; exit 1; }
+              [[ -n "$AZURE_VM_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: AZURE_VM_SSH_PRIVATE_KEY"; exit 1; }
+              ;;
+            *)
+              echo "Unsupported platform: $PLATFORM"
+              exit 1
+              ;;
+          esac
+
+      - name: Show planned deployment
+        run: |
+          echo "Platform: ${{ github.event.inputs.platform }}"
+          echo "Environment: ${{ github.event.inputs.target_environment }}"
+          echo "Git ref: ${{ github.event.inputs.git_ref }}"
+          echo "Dry run: ${{ github.event.inputs.dry_run }}"
+
+      - name: Deploy to UpCloud
+        if: ${{ github.event.inputs.platform == 'upcloud' && github.event.inputs.dry_run == 'false' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.UPCLOUD_DEPLOY_HOST }}
+          username: ${{ secrets.UPCLOUD_DEPLOY_USER }}
+          key: ${{ secrets.UPCLOUD_SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${DEPLOY_DIR:-/opt/gofap}"
+            cd "$DEPLOY_DIR"
+            git fetch --all --prune
+            git checkout "${{ github.event.inputs.git_ref }}"
+            if git show-ref --verify --quiet "refs/remotes/origin/${{ github.event.inputs.git_ref }}"; then
+              git pull --ff-only origin "${{ github.event.inputs.git_ref }}"
+            fi
+            docker compose pull
+            docker compose up -d --build
+            docker image prune -f
+
+      - name: Deploy to AWS EC2
+        if: ${{ github.event.inputs.platform == 'aws-ec2' && github.event.inputs.dry_run == 'false' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_EC2_DEPLOY_HOST }}
+          username: ${{ secrets.AWS_EC2_DEPLOY_USER }}
+          key: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${DEPLOY_DIR:-/opt/gofap}"
+            cd "$DEPLOY_DIR"
+            git fetch --all --prune
+            git checkout "${{ github.event.inputs.git_ref }}"
+            if git show-ref --verify --quiet "refs/remotes/origin/${{ github.event.inputs.git_ref }}"; then
+              git pull --ff-only origin "${{ github.event.inputs.git_ref }}"
+            fi
+            docker compose pull
+            docker compose up -d --build
+            docker image prune -f
+
+      - name: Deploy to Azure VM
+        if: ${{ github.event.inputs.platform == 'azure-vm' && github.event.inputs.dry_run == 'false' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_DEPLOY_HOST }}
+          username: ${{ secrets.AZURE_VM_DEPLOY_USER }}
+          key: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${DEPLOY_DIR:-/opt/gofap}"
+            cd "$DEPLOY_DIR"
+            git fetch --all --prune
+            git checkout "${{ github.event.inputs.git_ref }}"
+            if git show-ref --verify --quiet "refs/remotes/origin/${{ github.event.inputs.git_ref }}"; then
+              git pull --ff-only origin "${{ github.event.inputs.git_ref }}"
+            fi
+            docker compose pull
+            docker compose up -d --build
+            docker image prune -f
+
+      - name: Dry run completed
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: echo "Dry run mode enabled. No remote deployment executed."
