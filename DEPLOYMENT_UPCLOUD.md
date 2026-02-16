@@ -1,6 +1,6 @@
-# GOFAP Deployment Guide (UpCloud)
+# GOFAPS Deployment Guide (UpCloud)
 
-This guide provides a production-focused path to run GOFAP on an UpCloud Server using Docker Compose.
+This guide provides a production-focused path to run GOFAPS on an UpCloud Server using Docker Compose.
 
 ## 1) Provision infrastructure in UpCloud
 
@@ -92,12 +92,23 @@ To trigger deployment from GitHub, open **Actions → Deploy (Selected Platform)
 
 ## 8) Rollback strategy
 
-- Keep the previous container image tagged and available.
-- Roll back by redeploying previous image tag:
+- Keep the previous container image tagged and available (for example `your-registry/your-app:2024-01-15`).
+- Roll back by explicitly pinning the previous version and then redeploying:
+  1. Either **check out** the previous git ref that used the older image tag:
 
-```bash
-docker compose down
-docker compose up -d
-```
+     ```bash
+     cd /opt/gofap
+     git fetch --all
+     git checkout <previous-tag-or-commit>
+     ```
 
-For stronger guarantees, maintain immutable image tags and pin them in compose overrides.
+     or **edit** your `docker-compose.yml` / override file to set `image: your-registry/your-app:<previous-tag>`.
+  2. Apply the rollback:
+
+     ```bash
+     docker compose down
+     docker compose pull
+     docker compose up -d
+     ```
+
+For stronger guarantees, maintain immutable image tags and pin them in compose overrides so that each deploy/rollback corresponds to a specific tag.

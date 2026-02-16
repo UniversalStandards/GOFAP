@@ -1,6 +1,6 @@
 # Government Operations,Financial, Accounting, and Personnel System (GOFAPS)
 
-[![Deploy to selected platform](https://img.shields.io/badge/Deploy-Selected%20Platform-2ea44f?logo=githubactions&logoColor=white)](../../actions/workflows/deploy-selected-platform.yml)
+[![Deploy to selected platform](https://img.shields.io/badge/Deploy-Selected%20Platform-2ea44f?logo=githubactions&logoColor=white)](actions/workflows/deploy-selected-platform.yml)
 
 ## Overview                                                                        
 

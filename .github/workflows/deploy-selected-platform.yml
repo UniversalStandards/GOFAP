@@ -20,10 +20,12 @@ on:
           - staging
           - production
       git_ref:
-        description: "Git ref (branch, tag, or commit SHA) to deploy"
+        description: "Git ref to deploy (restricted to approved refs)"
         required: true
         default: "main"
-        type: string
+        type: choice
+        options:
+          - main
       dry_run:
         description: "Validate configuration only (no remote deployment)"
         required: true
