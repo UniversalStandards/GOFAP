@@ -20,12 +20,10 @@ on:
           - staging
           - production
       git_ref:
-        description: "Git ref to deploy (restricted to approved refs)"
+        description: "Git ref to deploy"
         required: true
         default: "main"
-        type: choice
-        options:
-          - main
+        type: string
       dry_run:
         description: "Validate configuration only (no remote deployment)"
         required: true
@@ -51,6 +49,19 @@ jobs:
         with:
           ref: ${{ github.event.inputs.git_ref }}
 
+      - name: Validate selected git ref exists
+        run: |
+          set -euo pipefail
+
+          GIT_REF="${{ github.event.inputs.git_ref }}"
+
+          # Verify that the selected ref exists as a branch, tag, or other resolvable ref
+          if ! git rev-parse --verify "refs/heads/${GIT_REF}" >/dev/null 2>&1 &&
+             ! git rev-parse --verify "refs/tags/${GIT_REF}" >/dev/null 2>&1 &&
+             ! git rev-parse --verify "${GIT_REF}" >/dev/null 2>&1; then
+            echo "Error: git ref '${GIT_REF}' does not exist in the checked-out repository."
+            exit 1
+          fi
       - name: Validate required deployment secrets
         env:
           PLATFORM: ${{ github.event.inputs.platform }}
