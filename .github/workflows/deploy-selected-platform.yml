@@ -20,12 +20,10 @@ on:
           - staging
           - production
       git_ref:
-        description: "Git ref to deploy (restricted to approved refs)"
+        description: "Git ref to deploy"
         required: true
         default: "main"
-        type: choice
-        options:
-          - main
+        type: string
       dry_run:
         description: "Validate configuration only (no remote deployment)"
         required: true
@@ -70,12 +68,15 @@ jobs:
           UPCLOUD_DEPLOY_HOST: ${{ secrets.UPCLOUD_DEPLOY_HOST }}
           UPCLOUD_DEPLOY_USER: ${{ secrets.UPCLOUD_DEPLOY_USER }}
           UPCLOUD_SSH_PRIVATE_KEY: ${{ secrets.UPCLOUD_SSH_PRIVATE_KEY }}
+          UPCLOUD_HOST_FINGERPRINT: ${{ secrets.UPCLOUD_HOST_FINGERPRINT }}
           AWS_EC2_DEPLOY_HOST: ${{ secrets.AWS_EC2_DEPLOY_HOST }}
           AWS_EC2_DEPLOY_USER: ${{ secrets.AWS_EC2_DEPLOY_USER }}
           AWS_EC2_SSH_PRIVATE_KEY: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
+          AWS_EC2_HOST_FINGERPRINT: ${{ secrets.AWS_EC2_HOST_FINGERPRINT }}
           AZURE_VM_DEPLOY_HOST: ${{ secrets.AZURE_VM_DEPLOY_HOST }}
           AZURE_VM_DEPLOY_USER: ${{ secrets.AZURE_VM_DEPLOY_USER }}
           AZURE_VM_SSH_PRIVATE_KEY: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+          AZURE_VM_HOST_FINGERPRINT: ${{ secrets.AZURE_VM_HOST_FINGERPRINT }}
         run: |
           set -euo pipefail
 
@@ -84,16 +85,19 @@ jobs:
               [[ -n "$UPCLOUD_DEPLOY_HOST" ]] || { echo "Missing secret: UPCLOUD_DEPLOY_HOST"; exit 1; }
               [[ -n "$UPCLOUD_DEPLOY_USER" ]] || { echo "Missing secret: UPCLOUD_DEPLOY_USER"; exit 1; }
               [[ -n "$UPCLOUD_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: UPCLOUD_SSH_PRIVATE_KEY"; exit 1; }
+              [[ -n "$UPCLOUD_HOST_FINGERPRINT" ]] || { echo "Missing secret: UPCLOUD_HOST_FINGERPRINT"; exit 1; }
               ;;
             aws-ec2)
               [[ -n "$AWS_EC2_DEPLOY_HOST" ]] || { echo "Missing secret: AWS_EC2_DEPLOY_HOST"; exit 1; }
               [[ -n "$AWS_EC2_DEPLOY_USER" ]] || { echo "Missing secret: AWS_EC2_DEPLOY_USER"; exit 1; }
               [[ -n "$AWS_EC2_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: AWS_EC2_SSH_PRIVATE_KEY"; exit 1; }
+              [[ -n "$AWS_EC2_HOST_FINGERPRINT" ]] || { echo "Missing secret: AWS_EC2_HOST_FINGERPRINT"; exit 1; }
               ;;
             azure-vm)
               [[ -n "$AZURE_VM_DEPLOY_HOST" ]] || { echo "Missing secret: AZURE_VM_DEPLOY_HOST"; exit 1; }
               [[ -n "$AZURE_VM_DEPLOY_USER" ]] || { echo "Missing secret: AZURE_VM_DEPLOY_USER"; exit 1; }
               [[ -n "$AZURE_VM_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: AZURE_VM_SSH_PRIVATE_KEY"; exit 1; }
+              [[ -n "$AZURE_VM_HOST_FINGERPRINT" ]] || { echo "Missing secret: AZURE_VM_HOST_FINGERPRINT"; exit 1; }
               ;;
             *)
               echo "Unsupported platform: $PLATFORM"
@@ -110,11 +114,12 @@ jobs:
 
       - name: Deploy to UpCloud
         if: ${{ github.event.inputs.platform == 'upcloud' && github.event.inputs.dry_run == 'false' }}
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@55dabf81a68c695b70d1048aad9c4dfc3f5e5a37
         with:
           host: ${{ secrets.UPCLOUD_DEPLOY_HOST }}
           username: ${{ secrets.UPCLOUD_DEPLOY_USER }}
           key: ${{ secrets.UPCLOUD_SSH_PRIVATE_KEY }}
+          fingerprint: ${{ secrets.UPCLOUD_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
@@ -131,11 +136,12 @@ jobs:
 
       - name: Deploy to AWS EC2
         if: ${{ github.event.inputs.platform == 'aws-ec2' && github.event.inputs.dry_run == 'false' }}
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@55dabf81a68c695b70d1048aad9c4dfc3f5e5a37
         with:
           host: ${{ secrets.AWS_EC2_DEPLOY_HOST }}
           username: ${{ secrets.AWS_EC2_DEPLOY_USER }}
           key: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
+          fingerprint: ${{ secrets.AWS_EC2_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
@@ -152,11 +158,12 @@ jobs:
 
       - name: Deploy to Azure VM
         if: ${{ github.event.inputs.platform == 'azure-vm' && github.event.inputs.dry_run == 'false' }}
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@55dabf81a68c695b70d1048aad9c4dfc3f5e5a37
         with:
           host: ${{ secrets.AZURE_VM_DEPLOY_HOST }}
           username: ${{ secrets.AZURE_VM_DEPLOY_USER }}
           key: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+          fingerprint: ${{ secrets.AZURE_VM_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
