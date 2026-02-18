@@ -81,14 +81,14 @@ If your application health endpoint differs, replace `/health` with the correct 
 
 ## 7) CI/CD recommendation for UpCloud
 
-Use the existing GitHub branch protections/environments to gate deployments:
-- `dev` environment → deploy from feature branches
-- `staging` environment → deploy from `release/*`
-- `production` environment → deploy from `main`
+Use the existing GitHub branch protections and GitHub Environments to gate deployments from the protected `main` branch:
+- Develop on feature branches and/or `release/*` branches.
+- Merge tested changes into `main`.
+- Deploy `dev`, `staging`, and `production` environments **from `main`**, with environment‑specific protections (approvals, reviewers, etc.) enforced by GitHub Environments.
 
-Use required approvals configured in GitHub Environments before production deployments.
+Use required approvals configured in GitHub Environments to control which commits from `main` can be promoted to each environment (especially `production`).
 
-To trigger deployment from GitHub, open **Actions → Deploy (Selected Platform) → Run workflow**, select `upcloud`, and choose your target environment.
+To trigger deployment from GitHub, open **Actions → Deploy (Selected Platform) → Run workflow**, select `upcloud`, choose `main` as the git reference (if prompted), and choose your target environment.
 
 ## 8) Rollback strategy
 
