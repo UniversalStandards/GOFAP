@@ -68,12 +68,15 @@ jobs:
           UPCLOUD_DEPLOY_HOST: ${{ secrets.UPCLOUD_DEPLOY_HOST }}
           UPCLOUD_DEPLOY_USER: ${{ secrets.UPCLOUD_DEPLOY_USER }}
           UPCLOUD_SSH_PRIVATE_KEY: ${{ secrets.UPCLOUD_SSH_PRIVATE_KEY }}
+          UPCLOUD_SSH_HOST_FINGERPRINT: ${{ secrets.UPCLOUD_SSH_HOST_FINGERPRINT }}
           AWS_EC2_DEPLOY_HOST: ${{ secrets.AWS_EC2_DEPLOY_HOST }}
           AWS_EC2_DEPLOY_USER: ${{ secrets.AWS_EC2_DEPLOY_USER }}
           AWS_EC2_SSH_PRIVATE_KEY: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
+          AWS_EC2_SSH_HOST_FINGERPRINT: ${{ secrets.AWS_EC2_SSH_HOST_FINGERPRINT }}
           AZURE_VM_DEPLOY_HOST: ${{ secrets.AZURE_VM_DEPLOY_HOST }}
           AZURE_VM_DEPLOY_USER: ${{ secrets.AZURE_VM_DEPLOY_USER }}
           AZURE_VM_SSH_PRIVATE_KEY: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+          AZURE_VM_SSH_HOST_FINGERPRINT: ${{ secrets.AZURE_VM_SSH_HOST_FINGERPRINT }}
         run: |
           set -euo pipefail
 
@@ -82,16 +85,19 @@ jobs:
               [[ -n "$UPCLOUD_DEPLOY_HOST" ]] || { echo "Missing secret: UPCLOUD_DEPLOY_HOST"; exit 1; }
               [[ -n "$UPCLOUD_DEPLOY_USER" ]] || { echo "Missing secret: UPCLOUD_DEPLOY_USER"; exit 1; }
               [[ -n "$UPCLOUD_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: UPCLOUD_SSH_PRIVATE_KEY"; exit 1; }
+              [[ -n "$UPCLOUD_SSH_HOST_FINGERPRINT" ]] || { echo "Missing secret: UPCLOUD_SSH_HOST_FINGERPRINT"; exit 1; }
               ;;
             aws-ec2)
               [[ -n "$AWS_EC2_DEPLOY_HOST" ]] || { echo "Missing secret: AWS_EC2_DEPLOY_HOST"; exit 1; }
               [[ -n "$AWS_EC2_DEPLOY_USER" ]] || { echo "Missing secret: AWS_EC2_DEPLOY_USER"; exit 1; }
               [[ -n "$AWS_EC2_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: AWS_EC2_SSH_PRIVATE_KEY"; exit 1; }
+              [[ -n "$AWS_EC2_SSH_HOST_FINGERPRINT" ]] || { echo "Missing secret: AWS_EC2_SSH_HOST_FINGERPRINT"; exit 1; }
               ;;
             azure-vm)
               [[ -n "$AZURE_VM_DEPLOY_HOST" ]] || { echo "Missing secret: AZURE_VM_DEPLOY_HOST"; exit 1; }
               [[ -n "$AZURE_VM_DEPLOY_USER" ]] || { echo "Missing secret: AZURE_VM_DEPLOY_USER"; exit 1; }
               [[ -n "$AZURE_VM_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: AZURE_VM_SSH_PRIVATE_KEY"; exit 1; }
+              [[ -n "$AZURE_VM_SSH_HOST_FINGERPRINT" ]] || { echo "Missing secret: AZURE_VM_SSH_HOST_FINGERPRINT"; exit 1; }
               ;;
             *)
               echo "Unsupported platform: $PLATFORM"
@@ -106,6 +112,9 @@ jobs:
           echo "Git ref: ${{ github.event.inputs.git_ref }}"
           echo "Dry run: ${{ github.event.inputs.dry_run }}"
 
+      # To obtain the host fingerprint for verification, run this command on the target host:
+      # ssh-keygen -l -f /etc/ssh/ssh_host_ed25519_key.pub | cut -d ' ' -f2
+      # Or connect once and get it from: ssh-keyscan -t ed25519 <hostname> | ssh-keygen -lf -
       - name: Deploy to UpCloud
         if: ${{ github.event.inputs.platform == 'upcloud' && github.event.inputs.dry_run == 'false' }}
         uses: appleboy/ssh-action@v1.0.3
@@ -113,6 +122,7 @@ jobs:
           host: ${{ secrets.UPCLOUD_DEPLOY_HOST }}
           username: ${{ secrets.UPCLOUD_DEPLOY_USER }}
           key: ${{ secrets.UPCLOUD_SSH_PRIVATE_KEY }}
+          fingerprint: ${{ secrets.UPCLOUD_SSH_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
@@ -134,6 +144,7 @@ jobs:
           host: ${{ secrets.AWS_EC2_DEPLOY_HOST }}
           username: ${{ secrets.AWS_EC2_DEPLOY_USER }}
           key: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
+          fingerprint: ${{ secrets.AWS_EC2_SSH_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
@@ -155,6 +166,7 @@ jobs:
           host: ${{ secrets.AZURE_VM_DEPLOY_HOST }}
           username: ${{ secrets.AZURE_VM_DEPLOY_USER }}
           key: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+          fingerprint: ${{ secrets.AZURE_VM_SSH_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
