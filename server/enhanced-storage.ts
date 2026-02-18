@@ -132,6 +132,7 @@ export interface IEnhancedStorage extends IStorage {
   // Enhanced Transaction operations
   getEnhancedTransactions(organizationId: string): Promise<EnhancedTransaction[]>;
   createEnhancedTransaction(transaction: InsertEnhancedTransaction): Promise<EnhancedTransaction>;
+  updateEnhancedTransaction(id: string, transaction: Partial<InsertEnhancedTransaction>): Promise<EnhancedTransaction>;
   getTransactionsByProvider(organizationId: string, provider: string): Promise<EnhancedTransaction[]>;
   getTransactionsByDateRange(organizationId: string, startDate: Date, endDate: Date): Promise<EnhancedTransaction[]>;
   
@@ -740,6 +741,15 @@ export class EnhancedDatabaseStorage
     return newTransaction;
   }
 
+  async updateEnhancedTransaction(id: string, transaction: Partial<InsertEnhancedTransaction>): Promise<EnhancedTransaction> {
+    const [updated] = await db
+      .update(enhancedTransactions)
+      .set({ ...transaction, updatedAt: new Date() })
+      .where(eq(enhancedTransactions.id, id))
+      .returning();
+    return updated;
+  }
+
   async getTransactionsByProvider(organizationId: string, provider: string): Promise<EnhancedTransaction[]> {
     return await db
       .select()
@@ -747,7 +757,8 @@ export class EnhancedDatabaseStorage
       .where(
         and(
           eq(enhancedTransactions.organizationId, organizationId),
-          eq(enhancedTransactions.provider, provider)
+          // Type assertion needed as provider is a string parameter but schema expects enum
+          eq(enhancedTransactions.provider, provider as any)
         )
       )
       .orderBy(desc(enhancedTransactions.createdAt));
@@ -832,7 +843,8 @@ export class EnhancedDatabaseStorage
     const records = await this.getComplianceRecords(organizationId);
     
     const statusBreakdown = records.reduce((acc, record) => {
-      acc[record.status] = (acc[record.status] || 0) + 1;
+      const status = record.status || 'unknown';
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -855,9 +867,9 @@ export class EnhancedDatabaseStorage
     const allGrants = await this.getGrants(organizationId);
     const activeGrants = await this.getActiveGrants(organizationId);
 
-    const totalGrantAmount = allGrants.reduce((sum, g) => sum + parseFloat(g.amount), 0);
-    const totalReceived = allGrants.reduce((sum, g) => sum + parseFloat(g.amountReceived), 0);
-    const totalSpent = allGrants.reduce((sum, g) => sum + parseFloat(g.amountSpent), 0);
+    const totalGrantAmount = allGrants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0);
+    const totalReceived = allGrants.reduce((sum, g) => sum + parseFloat(g.amountReceived || '0'), 0);
+    const totalSpent = allGrants.reduce((sum, g) => sum + parseFloat(g.amountSpent || '0'), 0);
 
     const utilizationRate = totalGrantAmount > 0 ? (totalSpent / totalGrantAmount) * 100 : 0;
 
