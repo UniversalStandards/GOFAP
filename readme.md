@@ -1,5 +1,7 @@
 # Government Operations,Financial, Accounting, and Personnel System (GOFAPS)
 
+[![Deploy to selected platform](https://img.shields.io/badge/Deploy-Selected%20Platform-2ea44f?logo=githubactions&logoColor=white)](/actions/workflows/deploy-selected-platform.yml)
+
 ## Overview                                                                        
 
 ### GOFAPS is a **Complete Organizational Solution Technology** (COST) 
@@ -103,7 +105,8 @@ The platform is designed to integrate with multiple payment processors:
 - **Build Process**: Separate client and server builds with esbuild for server bundling
 - **Environment Configuration**: Environment-specific settings for database and auth
 - **Code Quality**: TypeScript strict mode with comprehensive type checking
-- **Primary Hosting Target**: AWS EC2 with Nginx + PM2 as the recommended production stack (see `DEPLOYMENT_README.md` and `EC2_DEPLOYMENT_GUIDE.md` for end-to-end steps)
+- **Production Hosting Targets**: AWS EC2 and UpCloud are both supported production paths (see `DEPLOYMENT_README.md`, `EC2_DEPLOYMENT_GUIDE.md`, and `DEPLOYMENT_UPCLOUD.md`)
+- **One-click Deployment Trigger**: Use the **Deploy to selected platform** button above, then click **Run workflow** and choose platform + environment inputs in GitHub Actions.
 
 ## External Dependencies
 

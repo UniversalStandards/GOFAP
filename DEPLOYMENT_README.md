@@ -10,6 +10,7 @@ Quick reference for deploying GOFAPS in different environments.
 - [Development Setup](#development-setup)
 - [Production Deployment](#production-deployment)
 - [Docker Deployment](#docker-deployment)
+- [One-Click GitHub Actions Deployment](#one-click-github-actions-deployment)
 - [Azure Container Registry (ACR) + GitHub Actions](#azure-container-registry-acr--github-actions)
 - [AWS EC2 Deployment](#aws-ec2-deployment)
 - [Monitoring and Maintenance](#monitoring-and-maintenance)
@@ -197,6 +198,31 @@ docker-compose -f docker-compose.yml up -d
 # With custom configuration
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
+
+---
+
+## One-Click GitHub Actions Deployment
+
+The repository includes a GitHub Actions workflow for secure, one-click deployment to UpCloud, AWS EC2, or Azure VMs.
+
+For detailed setup instructions, required secrets, and security best practices, see **[DEPLOYMENT_WORKFLOW.md](./DEPLOYMENT_WORKFLOW.md)**.
+
+### Quick Overview
+
+The workflow supports:
+- ✅ SSH-based deployment with host key verification
+- ✅ Multiple platforms: UpCloud, AWS EC2, Azure VM
+- ✅ Environment-specific deployments (dev, staging, production)
+- ✅ Dry-run mode for validation
+- ✅ Automated Docker Compose updates
+
+**Required Setup:**
+1. Configure SSH access to your deployment server
+2. Add GitHub secrets for your chosen platform
+3. Obtain and configure SSH host fingerprints for security
+4. Run the workflow from the Actions tab
+
+See [DEPLOYMENT_WORKFLOW.md](./DEPLOYMENT_WORKFLOW.md) for complete documentation.
 
 ---
 
