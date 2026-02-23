@@ -192,7 +192,9 @@ jobs:
             echo "==> Pulling container images"
             if ! docker compose pull; then
               echo "ERROR: Failed to pull container images"
+              echo "==> Attempting rollback to previous commit"
               git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
               exit 1
             fi
             
@@ -281,7 +283,9 @@ jobs:
             echo "==> Pulling container images"
             if ! docker compose pull; then
               echo "ERROR: Failed to pull container images"
+              echo "==> Attempting rollback to previous commit"
               git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
               exit 1
             fi
             
@@ -370,7 +374,9 @@ jobs:
             echo "==> Pulling container images"
             if ! docker compose pull; then
               echo "ERROR: Failed to pull container images"
+              echo "==> Attempting rollback to previous commit"
               git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
               exit 1
             fi
             
