@@ -33,9 +33,9 @@ sudo systemctl enable --now docker
 ## 3) Deploy application
 
 ```bash
-sudo mkdir -p /opt/gofap
-sudo chown "$USER":"$USER" /opt/gofap
-cd /opt/gofap
+sudo mkdir -p /var/www/gofaps
+sudo chown "$USER":"$USER" /var/www/gofaps
+cd /var/www/gofaps
 
 git clone <your-repository-url> .
 cp .env.example .env
