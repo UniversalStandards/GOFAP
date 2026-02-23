@@ -161,7 +161,6 @@ jobs:
             EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
             GIT_REF="${{ github.event.inputs.git_ref }}"
             HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
-            HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
             
             echo "==> Starting deployment to $DEPLOY_DIR"
             cd "$DEPLOY_DIR"
@@ -251,7 +250,6 @@ jobs:
             EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
             GIT_REF="${{ github.event.inputs.git_ref }}"
             HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
-            HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
             
             echo "==> Starting deployment to $DEPLOY_DIR"
             cd "$DEPLOY_DIR"
@@ -341,7 +339,6 @@ jobs:
             EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
             GIT_REF="${{ github.event.inputs.git_ref }}"
             HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
-            HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
             
             echo "==> Starting deployment to $DEPLOY_DIR"
             cd "$DEPLOY_DIR"
