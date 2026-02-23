@@ -13,7 +13,9 @@
 - [ ] Lint and static analysis
 - [ ] Manual validation
 
-### Commands
+## Test Commands
+For each checked testing type above, list the exact commands run and their outcomes.
+
 ```bash
 # paste exact commands and outcomes
 ```

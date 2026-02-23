@@ -41,6 +41,7 @@ jobs:
   deploy:
     name: Deploy to ${{ github.event.inputs.platform }} (${{ github.event.inputs.target_environment }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: ${{ github.event.inputs.target_environment }}
 
     steps:
@@ -126,16 +127,84 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            DEPLOY_DIR="${DEPLOY_DIR:-/opt/gofap}"
+            
+            # Configuration
+            DEPLOY_DIR="${DEPLOY_DIR:-/var/www/gofaps}"
+            EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
+            GIT_REF="${{ github.event.inputs.git_ref }}"
+            HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
+            HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
+            
+            echo "==> Starting deployment to $DEPLOY_DIR"
             cd "$DEPLOY_DIR"
-            git fetch --all --prune
-            git checkout "${{ github.event.inputs.git_ref }}"
-            if git show-ref --verify --quiet "refs/remotes/origin/${{ github.event.inputs.git_ref }}"; then
-              git pull --ff-only origin "${{ github.event.inputs.git_ref }}"
+            
+            # Verify git remote to prevent deploying from tampered repository
+            echo "==> Verifying git remote URL"
+            CURRENT_REMOTE=$(git config --get remote.origin.url | sed 's/\.git$//')
+            if [[ "$CURRENT_REMOTE" != "$EXPECTED_REMOTE" && "$CURRENT_REMOTE" != "${EXPECTED_REMOTE}.git" ]]; then
+              echo "ERROR: Git remote mismatch. Expected: $EXPECTED_REMOTE, Got: $CURRENT_REMOTE"
+              exit 1
             fi
-            docker compose pull
-            docker compose up -d --build
+            
+            # Save current commit for potential rollback
+            PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            echo "==> Previous commit: $PREVIOUS_COMMIT"
+            
+            # Fetch and checkout
+            echo "==> Fetching updates"
+            git fetch --all --prune
+            git checkout "$GIT_REF"
+            if git show-ref --verify --quiet "refs/remotes/origin/$GIT_REF"; then
+              git pull --ff-only origin "$GIT_REF"
+            fi
+            
+            NEW_COMMIT=$(git rev-parse HEAD)
+            echo "==> New commit: $NEW_COMMIT"
+            
+            # Pull images and deploy with error handling
+            echo "==> Pulling container images"
+            if ! docker compose pull; then
+              echo "ERROR: Failed to pull container images"
+              git checkout "$PREVIOUS_COMMIT"
+              exit 1
+            fi
+            
+            echo "==> Bringing up containers"
+            if ! docker compose up -d --build; then
+              echo "ERROR: Failed to bring up containers"
+              echo "==> Attempting rollback to previous commit"
+              git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
+              exit 1
+            fi
+            
+            # Health check with retry
+            echo "==> Waiting for application to be ready"
+            sleep 5
+            HEALTH_CHECK_SUCCESS=false
+            for i in {1..6}; do
+              if curl -f -s --max-time 5 "$HEALTH_ENDPOINT" > /dev/null 2>&1; then
+                echo "==> Health check passed (attempt $i)"
+                HEALTH_CHECK_SUCCESS=true
+                break
+              fi
+              echo "==> Health check attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
+            
+            if [[ "$HEALTH_CHECK_SUCCESS" != "true" ]]; then
+              echo "ERROR: Health check failed after deployment"
+              echo "==> Attempting rollback to previous commit"
+              git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
+              exit 1
+            fi
+            
+            # Cleanup old images
+            echo "==> Cleaning up old images"
             docker image prune -f
+            
+            echo "==> Deployment completed successfully"
 
       - name: Deploy to AWS EC2
         if: ${{ github.event.inputs.platform == 'aws-ec2' && github.event.inputs.dry_run == 'false' }}
@@ -148,16 +217,84 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            DEPLOY_DIR="${DEPLOY_DIR:-/opt/gofap}"
+            
+            # Configuration
+            DEPLOY_DIR="${DEPLOY_DIR:-/var/www/gofaps}"
+            EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
+            GIT_REF="${{ github.event.inputs.git_ref }}"
+            HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
+            HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
+            
+            echo "==> Starting deployment to $DEPLOY_DIR"
             cd "$DEPLOY_DIR"
-            git fetch --all --prune
-            git checkout "${{ github.event.inputs.git_ref }}"
-            if git show-ref --verify --quiet "refs/remotes/origin/${{ github.event.inputs.git_ref }}"; then
-              git pull --ff-only origin "${{ github.event.inputs.git_ref }}"
+            
+            # Verify git remote to prevent deploying from tampered repository
+            echo "==> Verifying git remote URL"
+            CURRENT_REMOTE=$(git config --get remote.origin.url | sed 's/\.git$//')
+            if [[ "$CURRENT_REMOTE" != "$EXPECTED_REMOTE" && "$CURRENT_REMOTE" != "${EXPECTED_REMOTE}.git" ]]; then
+              echo "ERROR: Git remote mismatch. Expected: $EXPECTED_REMOTE, Got: $CURRENT_REMOTE"
+              exit 1
             fi
-            docker compose pull
-            docker compose up -d --build
+            
+            # Save current commit for potential rollback
+            PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            echo "==> Previous commit: $PREVIOUS_COMMIT"
+            
+            # Fetch and checkout
+            echo "==> Fetching updates"
+            git fetch --all --prune
+            git checkout "$GIT_REF"
+            if git show-ref --verify --quiet "refs/remotes/origin/$GIT_REF"; then
+              git pull --ff-only origin "$GIT_REF"
+            fi
+            
+            NEW_COMMIT=$(git rev-parse HEAD)
+            echo "==> New commit: $NEW_COMMIT"
+            
+            # Pull images and deploy with error handling
+            echo "==> Pulling container images"
+            if ! docker compose pull; then
+              echo "ERROR: Failed to pull container images"
+              git checkout "$PREVIOUS_COMMIT"
+              exit 1
+            fi
+            
+            echo "==> Bringing up containers"
+            if ! docker compose up -d --build; then
+              echo "ERROR: Failed to bring up containers"
+              echo "==> Attempting rollback to previous commit"
+              git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
+              exit 1
+            fi
+            
+            # Health check with retry
+            echo "==> Waiting for application to be ready"
+            sleep 5
+            HEALTH_CHECK_SUCCESS=false
+            for i in {1..6}; do
+              if curl -f -s --max-time 5 "$HEALTH_ENDPOINT" > /dev/null 2>&1; then
+                echo "==> Health check passed (attempt $i)"
+                HEALTH_CHECK_SUCCESS=true
+                break
+              fi
+              echo "==> Health check attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
+            
+            if [[ "$HEALTH_CHECK_SUCCESS" != "true" ]]; then
+              echo "ERROR: Health check failed after deployment"
+              echo "==> Attempting rollback to previous commit"
+              git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
+              exit 1
+            fi
+            
+            # Cleanup old images
+            echo "==> Cleaning up old images"
             docker image prune -f
+            
+            echo "==> Deployment completed successfully"
 
       - name: Deploy to Azure VM
         if: ${{ github.event.inputs.platform == 'azure-vm' && github.event.inputs.dry_run == 'false' }}
@@ -170,16 +307,84 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            DEPLOY_DIR="${DEPLOY_DIR:-/opt/gofap}"
+            
+            # Configuration
+            DEPLOY_DIR="${DEPLOY_DIR:-/var/www/gofaps}"
+            EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
+            GIT_REF="${{ github.event.inputs.git_ref }}"
+            HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
+            HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
+            
+            echo "==> Starting deployment to $DEPLOY_DIR"
             cd "$DEPLOY_DIR"
-            git fetch --all --prune
-            git checkout "${{ github.event.inputs.git_ref }}"
-            if git show-ref --verify --quiet "refs/remotes/origin/${{ github.event.inputs.git_ref }}"; then
-              git pull --ff-only origin "${{ github.event.inputs.git_ref }}"
+            
+            # Verify git remote to prevent deploying from tampered repository
+            echo "==> Verifying git remote URL"
+            CURRENT_REMOTE=$(git config --get remote.origin.url | sed 's/\.git$//')
+            if [[ "$CURRENT_REMOTE" != "$EXPECTED_REMOTE" && "$CURRENT_REMOTE" != "${EXPECTED_REMOTE}.git" ]]; then
+              echo "ERROR: Git remote mismatch. Expected: $EXPECTED_REMOTE, Got: $CURRENT_REMOTE"
+              exit 1
             fi
-            docker compose pull
-            docker compose up -d --build
+            
+            # Save current commit for potential rollback
+            PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            echo "==> Previous commit: $PREVIOUS_COMMIT"
+            
+            # Fetch and checkout
+            echo "==> Fetching updates"
+            git fetch --all --prune
+            git checkout "$GIT_REF"
+            if git show-ref --verify --quiet "refs/remotes/origin/$GIT_REF"; then
+              git pull --ff-only origin "$GIT_REF"
+            fi
+            
+            NEW_COMMIT=$(git rev-parse HEAD)
+            echo "==> New commit: $NEW_COMMIT"
+            
+            # Pull images and deploy with error handling
+            echo "==> Pulling container images"
+            if ! docker compose pull; then
+              echo "ERROR: Failed to pull container images"
+              git checkout "$PREVIOUS_COMMIT"
+              exit 1
+            fi
+            
+            echo "==> Bringing up containers"
+            if ! docker compose up -d --build; then
+              echo "ERROR: Failed to bring up containers"
+              echo "==> Attempting rollback to previous commit"
+              git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
+              exit 1
+            fi
+            
+            # Health check with retry
+            echo "==> Waiting for application to be ready"
+            sleep 5
+            HEALTH_CHECK_SUCCESS=false
+            for i in {1..6}; do
+              if curl -f -s --max-time 5 "$HEALTH_ENDPOINT" > /dev/null 2>&1; then
+                echo "==> Health check passed (attempt $i)"
+                HEALTH_CHECK_SUCCESS=true
+                break
+              fi
+              echo "==> Health check attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
+            
+            if [[ "$HEALTH_CHECK_SUCCESS" != "true" ]]; then
+              echo "ERROR: Health check failed after deployment"
+              echo "==> Attempting rollback to previous commit"
+              git checkout "$PREVIOUS_COMMIT"
+              docker compose up -d --build || echo "WARNING: Rollback failed, manual intervention required"
+              exit 1
+            fi
+            
+            # Cleanup old images
+            echo "==> Cleaning up old images"
             docker image prune -f
+            
+            echo "==> Deployment completed successfully"
 
       - name: Dry run completed
         if: ${{ github.event.inputs.dry_run == 'true' }}
