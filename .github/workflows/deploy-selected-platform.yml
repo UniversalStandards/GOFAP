@@ -1,5 +1,33 @@
 name: Deploy (Selected Platform)
 
+# Manual deployment workflow for UpCloud, AWS EC2, and Azure VM platforms.
+#
+# This workflow performs git-based deployments with docker compose rebuild on the target host.
+# 
+# DESIGN DECISIONS:
+# 
+# 1. Build on target host vs. pre-built images:
+#    - Current approach: Builds images on the target host using `docker compose up -d --build`
+#    - Trade-offs:
+#      * Pros: Simple setup, no registry required, works out-of-the-box
+#      * Cons: Build time on production server, potential for non-reproducible builds
+#    - Alternative: Use pre-built images from container-image.yml workflow and deploy specific tags
+#      * Pros: Reproducible builds, faster deployments, tested images from CI
+#      * Cons: Requires container registry setup, more complex workflow
+#    - To migrate to pre-built images: Update docker-compose.yml to use registry images,
+#      modify deployment script to pull specific image tags instead of building
+#
+# 2. Deployment method:
+#    - Uses SSH-based remote execution with git checkout and docker compose
+#    - Includes health checks, rollback on failure, and git remote verification
+#    - Deployment directory standardized to /var/www/gofaps across all platforms
+#
+# 3. Safety features:
+#    - 30-minute timeout to prevent hanging deployments
+#    - Git remote URL verification to prevent deploying from tampered repositories
+#    - Post-deployment health checks with automatic rollback on failure
+#    - Dry-run mode for validation without actual deployment
+
 on:
   workflow_dispatch:
     inputs:
