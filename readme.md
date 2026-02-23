@@ -105,7 +105,7 @@ The platform is designed to integrate with multiple payment processors:
 - **Build Process**: Separate client and server builds with esbuild for server bundling
 - **Environment Configuration**: Environment-specific settings for database and auth
 - **Code Quality**: TypeScript strict mode with comprehensive type checking
-- **Production Hosting Targets**: AWS EC2 and UpCloud are both supported production paths (see `DEPLOYMENT_README.md`, `EC2_DEPLOYMENT_GUIDE.md`, and `DEPLOYMENT_UPCLOUD.md`)
+- **Production Hosting Targets**: AWS EC2, UpCloud, and Azure VM are all supported production paths (see `DEPLOYMENT_README.md`, `EC2_DEPLOYMENT_GUIDE.md`, `DEPLOYMENT_UPCLOUD.md`, and `DEPLOYMENT_WORKFLOW.md`)
 - **One-click Deployment Trigger**: Use the **Deploy to selected platform** button above, then click **Run workflow** and choose platform + environment inputs in GitHub Actions.
 
 ## External Dependencies
