@@ -1,174 +1,177 @@
 /**
  * Environment Variable Validator
- * 
+ *
  * Validates that all required environment variables are present and valid
  * before the application starts. This prevents runtime errors due to
  * misconfiguration.
  */
 
+import { z } from "zod";
 import { logger } from "./logger";
 
-interface EnvVar {
-  name: string;
-  required: boolean;
-  validate?: (value: string) => boolean;
-  description: string;
+const envSchema = z
+  .object({
+    NODE_ENV: z.enum(["development", "production", "test"]),
+    PORT: z
+      .string()
+      .optional()
+      .transform((value) => value?.trim())
+      .refine(
+        (value) => {
+          if (!value) return true;
+          const port = Number(value);
+          return Number.isInteger(port) && port > 0 && port < 65536;
+        },
+        { message: "PORT must be an integer between 1 and 65535" }
+      ),
+    DATABASE_URL: z
+      .string()
+      .min(1, "DATABASE_URL is required")
+      .refine(
+        (value) =>
+          value.startsWith("postgres://") || value.startsWith("postgresql://"),
+        { message: "DATABASE_URL must be a PostgreSQL connection string" }
+      ),
+    SESSION_SECRET: z
+      .string()
+      .min(32, "SESSION_SECRET must be at least 32 characters long"),
+    REPLIT_DOMAINS: z
+      .string()
+      .min(1, "REPLIT_DOMAINS must contain at least one hostname")
+      .refine(
+        (value) =>
+          value
+            .split(",")
+            .map((domain) => domain.trim())
+            .every((domain) => domain.length > 0),
+        { message: "REPLIT_DOMAINS cannot contain empty values" }
+      ),
+    REPL_ID: z.string().min(1, "REPL_ID is required"),
+    ISSUER_URL: z
+      .string()
+      .optional()
+      .refine(
+        (value) => {
+          if (!value) return true;
+          try {
+            new URL(value);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        { message: "ISSUER_URL must be a valid URL if provided" }
+      ),
+    STRIPE_SECRET_KEY: z
+      .string()
+      .optional()
+      .refine(
+        (value) => !value || value.startsWith("sk_"),
+        { message: "STRIPE_SECRET_KEY must start with sk_" }
+      ),
+    STRIPE_PUBLISHABLE_KEY: z
+      .string()
+      .optional()
+      .refine(
+        (value) => !value || value.startsWith("pk_"),
+        { message: "STRIPE_PUBLISHABLE_KEY must start with pk_" }
+      ),
+    LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).optional(),
+  })
+  .passthrough();
+
+type EnvConfig = z.infer<typeof envSchema>;
+
+type Warning = string;
+
+function formatZodErrors(error: z.ZodError<EnvConfig>): string[] {
+  return error.errors.map((issue) => {
+    const path = issue.path.join(".") || "Environment";
+    return `❌ ${path.toUpperCase()}: ${issue.message}`;
+  });
 }
 
-const envVars: EnvVar[] = [
-  // Core Configuration
-  {
-    name: 'NODE_ENV',
-    required: true,
-    validate: (value) => ['development', 'production', 'test'].includes(value),
-    description: 'Application environment (development, production, or test)',
-  },
-  {
-    name: 'PORT',
-    required: false,
-    validate: (value) => !isNaN(parseInt(value)) && parseInt(value) > 0 && parseInt(value) < 65536,
-    description: 'Port number for the application (default: 5000)',
-  },
-
-  // Database Configuration
-  {
-    name: 'DATABASE_URL',
-    required: true,
-    validate: (value) => value.startsWith('postgres://') || value.startsWith('postgresql://'),
-    description: 'PostgreSQL database connection string',
-  },
-
-  // Session Configuration
-  {
-    name: 'SESSION_SECRET',
-    required: true,
-    validate: (value) => value.length >= 32,
-    description: 'Secret key for session encryption (minimum 32 characters)',
-  },
-
-  // Authentication (Replit Auth - if using)
-  {
-    name: 'REPLIT_DOMAINS',
-    required: false,
-    description: 'Replit domains for authentication',
-  },
-  {
-    name: 'REPL_ID',
-    required: false,
-    description: 'Replit application ID',
-  },
-  {
-    name: 'ISSUER_URL',
-    required: false,
-    description: 'OpenID Connect issuer URL',
-  },
-
-  // Payment Providers (Optional but recommended for production)
-  {
-    name: 'STRIPE_SECRET_KEY',
-    required: false,
-    validate: (value) => value.startsWith('sk_'),
-    description: 'Stripe secret key (starts with sk_)',
-  },
-  {
-    name: 'STRIPE_PUBLISHABLE_KEY',
-    required: false,
-    validate: (value) => value.startsWith('pk_'),
-    description: 'Stripe publishable key (starts with pk_)',
-  },
-
-  // Logging (Optional)
-  {
-    name: 'LOG_LEVEL',
-    required: false,
-    validate: (value) => ['error', 'warn', 'info', 'debug'].includes(value),
-    description: 'Logging level (error, warn, info, debug)',
-  },
-];
+function normalizeDomains(value: string): string {
+  return value
+    .split(",")
+    .map((domain) => domain.trim())
+    .filter((domain) => domain.length > 0)
+    .join(",");
+}
 
 /**
  * Validate environment variables
  * @throws Error if required variables are missing or invalid
  */
-export function validateEnvironment(): void {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  const isProduction = process.env.NODE_ENV === 'production';
+export function validateEnvironment(): EnvConfig {
+  const parseResult = envSchema.safeParse(process.env);
 
-  for (const envVar of envVars) {
-    const value = process.env[envVar.name];
+  if (!parseResult.success) {
+    const errors = formatZodErrors(parseResult.error);
 
-    // Check if required variable is present
-    if (envVar.required && !value) {
-      errors.push(`❌ ${envVar.name} is required but not set. ${envVar.description}`);
-      continue;
-    }
-
-    // Skip validation if not set and not required
-    if (!value) {
-      if (isProduction && envVar.name.includes('STRIPE')) {
-        warnings.push(`⚠️  ${envVar.name} is not set. Payment processing may not work. ${envVar.description}`);
-      }
-      continue;
-    }
-
-    // Validate value if validator is provided
-    if (envVar.validate && !envVar.validate(value)) {
-      errors.push(`❌ ${envVar.name} has invalid value. ${envVar.description}`);
-    }
-  }
-
-  // Production-specific checks
-  if (isProduction) {
-    // Check SESSION_SECRET strength
-    const sessionSecret = process.env.SESSION_SECRET;
-    if (sessionSecret && sessionSecret.length < 32) {
-      errors.push('❌ SESSION_SECRET must be at least 32 characters in production');
-    }
-
-    // Warn about development mode secrets
-    if (process.env.STRIPE_SECRET_KEY?.includes('test')) {
-      warnings.push('⚠️  STRIPE_SECRET_KEY appears to be a test key. Use production keys in production.');
-    }
-  }
-
-  // Log warnings
-  if (warnings.length > 0) {
-    logger.warn('Environment variable warnings detected:', { warnings });
-    warnings.forEach(warning => console.warn(warning));
-  }
-
-  // Throw error if there are validation errors
-  if (errors.length > 0) {
     const errorMessage = [
-      '',
-      '═══════════════════════════════════════════════════════════════',
-      '  ENVIRONMENT CONFIGURATION ERROR',
-      '═══════════════════════════════════════════════════════════════',
-      '',
-      'The following environment variables are missing or invalid:',
-      '',
+      "",
+      "═══════════════════════════════════════════════════════════════",
+      "  ENVIRONMENT CONFIGURATION ERROR",
+      "═══════════════════════════════════════════════════════════════",
+      "",
+      "The following environment variables are missing or invalid:",
+      "",
       ...errors,
-      '',
-      'Please check your .env file or environment configuration.',
-      'See .env.example for reference.',
-      '',
-      '═══════════════════════════════════════════════════════════════',
-      '',
-    ].join('\n');
+      "",
+      "Please check your .env file or environment configuration.",
+      "See .env.example for reference.",
+      "",
+      "═══════════════════════════════════════════════════════════════",
+      "",
+    ].join("\n");
 
-    logger.error('Environment validation failed', new Error(errorMessage));
+    logger.error("Environment validation failed", new Error(errorMessage));
     throw new Error(errorMessage);
   }
 
-  // Log successful validation
-  logger.info('Environment validation passed', {
-    nodeEnv: process.env.NODE_ENV,
-    port: process.env.PORT || 5000,
-    databaseConfigured: !!process.env.DATABASE_URL,
-    authConfigured: !!(process.env.REPL_ID && process.env.ISSUER_URL),
-    stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
+  const env = parseResult.data;
+  const normalizedDomains = normalizeDomains(env.REPLIT_DOMAINS);
+  process.env.REPLIT_DOMAINS = normalizedDomains;
+  if (env.ISSUER_URL) {
+    process.env.ISSUER_URL = env.ISSUER_URL;
+  }
+
+  const warnings: Warning[] = [];
+  const isProduction = env.NODE_ENV === "production";
+
+  if (isProduction) {
+    if (!env.STRIPE_SECRET_KEY) {
+      warnings.push(
+        "⚠️  STRIPE_SECRET_KEY is not set. Payment processing may not work."
+      );
+    }
+    if (!env.STRIPE_PUBLISHABLE_KEY) {
+      warnings.push(
+        "⚠️  STRIPE_PUBLISHABLE_KEY is not set. Payment processing may not work."
+      );
+    }
+    if (env.STRIPE_SECRET_KEY && env.STRIPE_SECRET_KEY.includes("test")) {
+      warnings.push(
+        "⚠️  STRIPE_SECRET_KEY appears to be a test key. Use production keys in production."
+      );
+    }
+  }
+
+  if (warnings.length > 0) {
+    logger.warn("Environment variable warnings detected:", { warnings });
+    warnings.forEach((warning) => console.warn(warning));
+  }
+
+  logger.info("Environment validation passed", {
+    nodeEnv: env.NODE_ENV,
+    port: env.PORT ?? 5000,
+    databaseConfigured: !!env.DATABASE_URL,
+    authConfigured: !!(env.REPL_ID && normalizedDomains.length > 0),
+    stripeConfigured: !!env.STRIPE_SECRET_KEY,
   });
+
+  return env;
 }
 
 /**
@@ -176,18 +179,20 @@ export function validateEnvironment(): void {
  */
 export function getSafeEnvInfo(): Record<string, any> {
   const safeEnv: Record<string, any> = {};
-  const sensitiveKeys = ['SECRET', 'KEY', 'PASSWORD', 'TOKEN', 'PRIVATE'];
+  const sensitiveKeys = ["SECRET", "KEY", "PASSWORD", "TOKEN", "PRIVATE"];
 
   for (const [key, value] of Object.entries(process.env)) {
     if (!value) continue;
 
-    const isSensitive = sensitiveKeys.some(sensitive => key.includes(sensitive));
-    
+    const isSensitive = sensitiveKeys.some((sensitive) =>
+      key.includes(sensitive)
+    );
+
     if (isSensitive) {
-      safeEnv[key] = '***REDACTED***';
-    } else if (key === 'DATABASE_URL') {
+      safeEnv[key] = "***REDACTED***";
+    } else if (key === "DATABASE_URL") {
       // Mask password in database URL
-      safeEnv[key] = value.replace(/:[^:@]+@/, ':***@');
+      safeEnv[key] = value.replace(/:[^:@]+@/, ":***@");
     } else {
       safeEnv[key] = value;
     }

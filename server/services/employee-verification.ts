@@ -142,8 +142,8 @@ export class EmployeeVerificationService {
         }
         
         successCount++;
-      } catch (error) {
-        errors.push(`Row ${i + 1}: ${error.message}`);
+      } catch (error: any) {
+        errors.push(`Row ${i + 1}: ${error?.message || 'Unknown error'}`);
       }
     }
     
@@ -271,6 +271,14 @@ export class EmployeeVerificationService {
       .where(eq(employees.userId, userId));
     
     return employee || null;
+  }
+
+  async getEmployeesByOrganization(organizationId: string): Promise<any[]> {
+    const employeeList = await db.select()
+      .from(employees)
+      .where(eq(employees.organizationId, organizationId));
+    
+    return employeeList;
   }
 }
 
