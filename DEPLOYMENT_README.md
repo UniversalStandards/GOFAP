@@ -10,6 +10,7 @@ Quick reference for deploying GOFAPS in different environments.
 - [Development Setup](#development-setup)
 - [Production Deployment](#production-deployment)
 - [Docker Deployment](#docker-deployment)
+- [One-Click GitHub Actions Deployment](#one-click-github-actions-deployment)
 - [Azure Container Registry (ACR) + GitHub Actions](#azure-container-registry-acr--github-actions)
 - [AWS EC2 Deployment](#aws-ec2-deployment)
 - [Monitoring and Maintenance](#monitoring-and-maintenance)
@@ -61,10 +62,13 @@ Visit http://localhost:5000
    ```bash
    cp .env.example .env
    ```
-   
+
    Edit `.env` and set required variables:
    - `DATABASE_URL` - PostgreSQL connection string
    - `SESSION_SECRET` - Generate with `openssl rand -base64 32`
+   - `REPL_ID` - Client ID from Replit Auth (or the OpenID provider you will use in production)
+   - `REPLIT_DOMAINS` - Comma-separated list of public hostnames that serve the app (e.g., `app.example.com`)
+   - *(Optional)* `ISSUER_URL` - Override when using a non-Replit OpenID Connect provider
    - Other optional services as needed
 
 3. **Setup Database**
@@ -116,6 +120,10 @@ NODE_ENV=production
 PORT=5000
 DATABASE_URL=postgresql://user:password@host:5432/database
 SESSION_SECRET=your_secure_session_secret_min_32_chars
+REPL_ID=your_oidc_client_id
+REPLIT_DOMAINS=app.example.com
+# Optional: default is https://replit.com/oidc
+ISSUER_URL=https://replit.com/oidc
 ```
 
 **Optional but Recommended:**
@@ -132,6 +140,29 @@ LOG_LEVEL=info
 ```
 
 See `.env.example` for complete list.
+
+#### Configuring Authentication Outside Replit
+
+When hosting on Linux VMs, bare-metal servers, or containers, follow these steps to keep authentication working:
+
+1. **Register an OIDC client**
+   - Using Replit Auth: visit the Replit Auth dashboard and create a new client for your deployment domain.
+   - Using another identity provider: create an OpenID Connect application that supports the Authorization Code + PKCE flow.
+
+2. **Set callback URLs**
+   - Add `https://<your-domain>/api/callback` as an authorized redirect URI.
+   - If you expose multiple domains (e.g., production and staging), list each domain in `REPLIT_DOMAINS`.
+
+3. **Populate environment variables**
+   - `REPL_ID`: the client ID from step 1.
+   - `REPLIT_DOMAINS`: comma-separated hostnames that resolve to your deployment (e.g., `finance.example.com,staging.finance.example.com`).
+   - `ISSUER_URL`: set this to the issuer URL provided by your identity platform if it differs from `https://replit.com/oidc`.
+
+4. **Inject variables into your runtime**
+   - **Linux VM / systemd**: add the variables to `/etc/gofaps/environment` (see EC2 guide) and reload the service.
+   - **Docker / containers**: pass them via `docker run -e REPL_ID=... -e REPLIT_DOMAINS=...` or add them to your Compose file or orchestrator secrets manager.
+
+Failing to configure these values will prevent the server from accepting login requests; the runtime validator will block startup if any required value is missing.
 
 ---
 
@@ -152,6 +183,9 @@ docker run -d \
   -e NODE_ENV=production \
   -e DATABASE_URL=postgresql://... \
   -e SESSION_SECRET=... \
+  -e REPL_ID=your_oidc_client_id \
+  -e REPLIT_DOMAINS=app.example.com \
+  -e ISSUER_URL=https://replit.com/oidc \
   gofaps:latest
 ```
 
@@ -164,6 +198,31 @@ docker-compose -f docker-compose.yml up -d
 # With custom configuration
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
+
+---
+
+## One-Click GitHub Actions Deployment
+
+The repository includes a GitHub Actions workflow for secure, one-click deployment to UpCloud, AWS EC2, or Azure VMs.
+
+For detailed setup instructions, required secrets, and security best practices, see **[DEPLOYMENT_WORKFLOW.md](./DEPLOYMENT_WORKFLOW.md)**.
+
+### Quick Overview
+
+The workflow supports:
+- ✅ SSH-based deployment with host key verification
+- ✅ Multiple platforms: UpCloud, AWS EC2, Azure VM
+- ✅ Environment-specific deployments (dev, staging, production)
+- ✅ Dry-run mode for validation
+- ✅ Automated Docker Compose updates
+
+**Required Setup:**
+1. Configure SSH access to your deployment server
+2. Add GitHub secrets for your chosen platform
+3. Obtain and configure SSH host fingerprints for security
+4. Run the workflow from the Actions tab
+
+See [DEPLOYMENT_WORKFLOW.md](./DEPLOYMENT_WORKFLOW.md) for complete documentation.
 
 ---
 

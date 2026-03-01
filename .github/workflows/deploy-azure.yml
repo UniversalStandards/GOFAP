@@ -1,0 +1,137 @@
+name: Deploy to Azure App Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      image_tag:
+        description: 'Image tag to deploy (short SHA or "latest")'
+        required: true
+        default: 'latest'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Set environment variables
+        run: |
+          case "${{ github.event.inputs.environment }}" in
+            dev)
+              echo "RESOURCE_GROUP=gofap-dev-rg" >> $GITHUB_ENV
+              echo "APP_NAME=gofap-dev-app" >> $GITHUB_ENV
+              echo "ACR_IMAGE_TAG=dev-${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+              ;;
+            staging)
+              echo "RESOURCE_GROUP=gofap-staging-rg" >> $GITHUB_ENV
+              echo "APP_NAME=gofap-staging-app" >> $GITHUB_ENV
+              echo "ACR_IMAGE_TAG=staging-${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+              ;;
+            production)
+              echo "RESOURCE_GROUP=gofap-prod-rg" >> $GITHUB_ENV
+              echo "APP_NAME=gofap-prod-app" >> $GITHUB_ENV
+              echo "ACR_IMAGE_TAG=prod-${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+              ;;
+          esac
+      
+      - name: Get ACR login server
+        run: |
+          ACR_LOGIN_SERVER=$(az acr show --name "${{ secrets.ACR_NAME }}" --query loginServer -o tsv)
+          echo "REGISTRY=${ACR_LOGIN_SERVER}" >> $GITHUB_ENV
+          echo "FULL_IMAGE=${ACR_LOGIN_SERVER}/gofap-app:${{ env.ACR_IMAGE_TAG }}" >> $GITHUB_ENV
+      
+      - name: Check if image exists in ACR
+        run: |
+          echo "Checking for image: ${{ env.FULL_IMAGE }}"
+          az acr repository show \
+            --name "${{ secrets.ACR_NAME }}" \
+            --image "gofap-app:${{ env.ACR_IMAGE_TAG }}" \
+            || (echo "❌ Image not found in ACR" && exit 1)
+          echo "✅ Image found in ACR"
+      
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.APP_NAME }}
+          images: ${{ env.FULL_IMAGE }}
+      
+      - name: Wait for deployment to stabilize
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+      
+      - name: Health check - Liveness
+        run: |
+          echo "Running liveness check..."
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ env.APP_NAME }}.azurewebsites.net/health")
+            
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✅ Health check passed (HTTP $RESPONSE)"
+              exit 0
+            fi
+            
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Health check failed (HTTP $RESPONSE). Retry $RETRY_COUNT/$MAX_RETRIES..."
+            sleep 10
+          done
+          
+          echo "❌ Health check failed after $MAX_RETRIES retries"
+          exit 1
+      
+      - name: Health check - Readiness
+        run: |
+          echo "Running readiness check..."
+          RESPONSE=$(curl -s "https://${{ env.APP_NAME }}.azurewebsites.net/health/ready")
+          echo "Readiness response: $RESPONSE"
+      
+      - name: Get deployment logs (on failure)
+        if: failure()
+        run: |
+          echo "Fetching application logs..."
+          az webapp log tail \
+            --name ${{ env.APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            || echo "Could not fetch logs"
+      
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## 🚀 Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.FULL_IMAGE }}" >> $GITHUB_STEP_SUMMARY
+          echo "**App URL:** https://${{ env.APP_NAME }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
+          echo "**Health Check:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify application functionality" >> $GITHUB_STEP_SUMMARY
+          echo "- Check Application Insights for metrics" >> $GITHUB_STEP_SUMMARY
+          echo "- Monitor for errors in the first hour" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Azure logout
+        if: always()
+        run: az logout

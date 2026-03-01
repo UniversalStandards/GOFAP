@@ -1,0 +1,125 @@
+name: Purge Cloudflare Cache
+
+on:
+  workflow_dispatch:
+    inputs:
+      purge_type:
+        description: 'Type of cache purge'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - static_assets
+          - api_routes
+  push:
+    branches:
+      - main
+    paths:
+      - 'client/**'
+      - 'public/**'
+      - 'dist/**'
+
+permissions:
+  contents: read
+
+jobs:
+  purge-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Determine purge type
+        id: purge-type
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.purge_type }}" >> $GITHUB_OUTPUT
+          else
+            echo "type=static_assets" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Purge all cache
+        if: steps.purge-type.outputs.type == 'all'
+        run: |
+          echo "Purging all Cloudflare cache..."
+          RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          
+          SUCCESS=$(echo $RESPONSE | jq -r '.success')
+          
+          if [ "$SUCCESS" = "true" ]; then
+            echo "✅ Successfully purged all cache"
+          else
+            echo "❌ Failed to purge cache"
+            echo $RESPONSE | jq '.'
+            exit 1
+          fi
+      
+      - name: Purge static assets cache
+        if: steps.purge-type.outputs.type == 'static_assets'
+        run: |
+          echo "Purging static assets cache..."
+          RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "files": [
+                "https://yourdomain.com/assets/*",
+                "https://yourdomain.com/*.js",
+                "https://yourdomain.com/*.css",
+                "https://yourdomain.com/*.png",
+                "https://yourdomain.com/*.jpg",
+                "https://yourdomain.com/*.ico"
+              ],
+              "tags": ["static"]
+            }')
+          
+          SUCCESS=$(echo $RESPONSE | jq -r '.success')
+          
+          if [ "$SUCCESS" = "true" ]; then
+            echo "✅ Successfully purged static assets cache"
+          else
+            echo "❌ Failed to purge cache"
+            echo $RESPONSE | jq '.'
+            exit 1
+          fi
+      
+      - name: Purge API routes cache
+        if: steps.purge-type.outputs.type == 'api_routes'
+        run: |
+          echo "Purging API routes cache..."
+          RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "prefixes": [
+                "https://yourdomain.com/api/"
+              ]
+            }')
+          
+          SUCCESS=$(echo $RESPONSE | jq -r '.success')
+          
+          if [ "$SUCCESS" = "true" ]; then
+            echo "✅ Successfully purged API routes cache"
+          else
+            echo "❌ Failed to purge cache"
+            echo $RESPONSE | jq '.'
+            exit 1
+          fi
+      
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## 🗑️ Cloudflare Cache Purged" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Purge Type:** ${{ steps.purge-type.outputs.type }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered By:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### What This Means" >> $GITHUB_STEP_SUMMARY
+          echo "- Fresh content will be served to users" >> $GITHUB_STEP_SUMMARY
+          echo "- First requests may be slightly slower as cache rebuilds" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify updated content is visible within 1-2 minutes" >> $GITHUB_STEP_SUMMARY

@@ -26,8 +26,11 @@
    
    **Required for development:**
    - `DATABASE_URL`: PostgreSQL connection string
-   - `SESSION_SECRET`: Random secret for session encryption
+   - `SESSION_SECRET`: Random secret for session encryption (minimum 32 characters)
+   - `REPL_ID`: OIDC client identifier issued by Replit (or your custom provider)
+   - `REPLIT_DOMAINS`: Comma-separated list of hostnames that are allowed to initiate login (e.g., `localhost,app.example.com`)
    - `NODE_ENV=development`
+   - *(Optional)* `ISSUER_URL`: Only override when using a non-Replit OpenID Connect issuer
 
 4. **Set up the database**
    ```bash
@@ -53,7 +56,12 @@
 
 ### Required
 - `DATABASE_URL` - PostgreSQL database connection string
-- `SESSION_SECRET` - Secret key for session encryption
+- `SESSION_SECRET` - Secret key for session encryption (minimum 32 characters)
+- `REPL_ID` - Client ID registered with Replit Auth or your external OpenID Connect provider
+- `REPLIT_DOMAINS` - Comma-separated list of domains that will serve the app and receive `/api/callback`
+
+### Optional Authentication Overrides
+- `ISSUER_URL` - Custom OpenID Connect issuer URL. Defaults to `https://replit.com/oidc`. Provide this when deploying outside of Replit with an alternative identity provider.
 
 ### Optional (for production features)
 - Payment providers (Stripe, PayPal, etc.)
