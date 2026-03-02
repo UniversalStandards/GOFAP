@@ -97,7 +97,7 @@ To trigger deployment from GitHub, open **Actions → Deploy (Selected Platform)
   1. Either **check out** the previous git ref that used the older image tag:
 
      ```bash
-     cd /opt/gofap
+     cd /var/www/gofaps
      git fetch --all
      git checkout <previous-tag-or-commit>
      ```
