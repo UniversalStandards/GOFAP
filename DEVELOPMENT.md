@@ -59,8 +59,8 @@ The lint stack is pinned to a compatible set for CI consistency:
 
 - `eslint`: `^8.57.1`
 - `eslint-config-airbnb-typescript`: `^18.0.0`
-- `@typescript-eslint/eslint-plugin`: `^7.18.0`
-- `@typescript-eslint/parser`: `^7.18.0`
+- `@typescript-eslint/eslint-plugin`: `7.18.0`
+- `@typescript-eslint/parser`: `7.18.0`
 
 CI linting uses strict mode via `npm run lint`, which runs ESLint with `--max-warnings 0`.
 
