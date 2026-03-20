@@ -1,7 +1,17 @@
+# Global default ownership
 * @gofaps-admins
 
+# Repository automation and governance
 /.github/ @gofaps-admins
-/server/ @gofaps-backend
+
+# Application domains
 /client/ @gofaps-frontend
+/server/ @gofaps-backend
 /shared/ @gofaps-backend
 /tests/ @gofaps-backend
+
+# Infrastructure and deployment surfaces
+/infra/ @gofaps-release-managers
+Dockerfile @gofaps-release-managers @gofaps-backend
+docker-compose.yml @gofaps-release-managers @gofaps-backend
+nginx.conf @gofaps-release-managers
