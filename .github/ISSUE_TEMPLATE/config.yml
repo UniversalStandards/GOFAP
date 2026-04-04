@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Security Vulnerability Report
+    url: mailto:security@ofaps.spurs.gov
+    about: Do NOT open a public issue for security vulnerabilities. Email security@ofaps.spurs.gov directly.
+  - name: 📞 OFAPS Support
+    url: mailto:gofap@ofaps.spurs.gov
+    about: General support — Office of Finance, Accounting & Personnel Services · (844) 697-7877 ext. 6327
+  - name: 📖 Documentation
+    url: https://github.com/UniversalStandards/GOFAP/blob/main/README.md
+    about: Read the full GOFAPS documentation before opening an issue.
+  - name: 💬 Discussions
+    url: https://github.com/UniversalStandards/GOFAP/discussions
+    about: Questions, ideas, and general discussion belong in GitHub Discussions.
