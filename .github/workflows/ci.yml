@@ -15,6 +15,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  config-integrity:
+    name: JSON and YAML integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate configuration assets
+        run: scripts/validate-config-assets.sh
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
