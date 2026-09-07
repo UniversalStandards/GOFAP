@@ -5,20 +5,17 @@ variable "environment" {
     error_message = "environment must be dev, staging, or production."
   }
 }
-variable "location" {
+variable "zone" {
   type = string
 }
-variable "address_space" {
-  type = list(string)
-}
-variable "subnet_prefixes" {
-  type = list(string)
-}
-variable "vm_size" {
+variable "network_cidr" {
   type = string
 }
-variable "admin_username" {
+variable "plan" {
   type = string
+}
+variable "storage_size" {
+  type = number
 }
 variable "ssh_public_key" {
   type      = string
@@ -26,8 +23,4 @@ variable "ssh_public_key" {
 }
 variable "admin_cidrs" {
   type = list(string)
-}
-variable "tags" {
-  type    = map(string)
-  default = {}
 }

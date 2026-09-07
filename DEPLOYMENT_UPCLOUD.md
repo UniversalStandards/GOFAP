@@ -112,3 +112,7 @@ To trigger deployment from GitHub, open **Actions → Deploy (Selected Platform)
      ```
 
 For stronger guarantees, maintain immutable image tags and pin them in compose overrides so that each deploy/rollback corresponds to a specific tag.
+
+## Terraform baseline
+
+The supported UpCloud infrastructure-as-code root is [`infra/terraform/upcloud/`](./infra/terraform/upcloud/README.md). It provisions the SDN network, firewall rules, and server used by this guide. Review the shared [environment and remote-state strategy](./infra/terraform/README.md) before applying it.
