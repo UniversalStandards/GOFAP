@@ -66,31 +66,127 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate deployment policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      resolved_sha: ${{ steps.resolve.outputs.resolved_sha }}
+      canonical_ref: ${{ steps.policy.outputs.canonical_ref }}
+      ref_type: ${{ steps.resolve.outputs.ref_type }}
+    steps:
+      - name: Validate environment and ref policy
+        id: policy
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          REQUESTED_REF: ${{ inputs.git_ref }}
+        run: |
+          set -euo pipefail
+
+          fail() {
+            echo "::error title=Deployment policy rejected::$*"
+            exit 1
+          }
+
+          [[ "$REQUESTED_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] ||
+            fail "The git ref contains unsupported characters. Use a canonical short branch or tag name."
+          [[ "$REQUESTED_REF" != refs/* && "$REQUESTED_REF" != */ &&
+             "$REQUESTED_REF" != *..* && "$REQUESTED_REF" != *//* ]] ||
+            fail "The git ref must be a canonical short name without traversal or repeated separators."
+
+          case "$TARGET_ENVIRONMENT" in
+            production)
+              [[ "$REQUESTED_REF" == "main" ||
+                 "$REQUESTED_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] ||
+                fail "Production accepts only main or a signed semantic release tag (for example, v2.1.0)."
+              ;;
+            staging)
+              [[ "$REQUESTED_REF" =~ ^release/[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||
+                fail "Staging accepts only release/* branches."
+              ;;
+            dev)
+              [[ "$REQUESTED_REF" =~ ^(dev|develop|(feature|fix|hotfix|chore|docs|test)/[A-Za-z0-9][A-Za-z0-9._/-]*)$ ]] ||
+                fail "Dev accepts only controlled non-protected dev, develop, feature/*, fix/*, hotfix/*, chore/*, docs/*, or test/* branches."
+              ;;
+            *) fail "Unsupported environment: $TARGET_ENVIRONMENT" ;;
+          esac
+
+          echo "canonical_ref=$REQUESTED_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.policy.outputs.canonical_ref }}
+          fetch-depth: 0
+
+      - name: Resolve ref and verify release signature
+        id: resolve
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          REQUESTED_REF: ${{ steps.policy.outputs.canonical_ref }}
+        run: |
+          set -euo pipefail
+
+          branch_ref="refs/remotes/origin/$REQUESTED_REF"
+          tag_ref="refs/tags/$REQUESTED_REF"
+
+          if git show-ref --verify --quiet "$branch_ref"; then
+            ref_type="branch"
+            resolved_sha=$(git rev-parse "${branch_ref}^{commit}")
+          elif git show-ref --verify --quiet "$tag_ref"; then
+            ref_type="tag"
+            resolved_sha=$(git rev-parse "${tag_ref}^{commit}")
+          else
+            echo "::error title=Unknown deployment ref::The requested branch or tag does not exist."
+            exit 1
+          fi
+
+          if [[ "$TARGET_ENVIRONMENT" == "production" && "$REQUESTED_REF" != "main" ]]; then
+            [[ "$ref_type" == "tag" ]] || {
+              echo "::error title=Invalid production ref::A production release version must resolve to a tag."
+              exit 1
+            }
+            git verify-tag "$REQUESTED_REF" || {
+              echo "::error title=Unverified release tag::Production release tags must have a valid signature trusted by the runner keyring."
+              exit 1
+            }
+          elif [[ "$ref_type" != "branch" ]]; then
+            echo "::error title=Invalid deployment ref::$TARGET_ENVIRONMENT deployments require a branch."
+            exit 1
+          fi
+
+          echo "resolved_sha=$resolved_sha" >> "$GITHUB_OUTPUT"
+          echo "ref_type=$ref_type" >> "$GITHUB_OUTPUT"
+
   deploy:
     name: Deploy to ${{ github.event.inputs.platform }} (${{ github.event.inputs.target_environment }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: validate
     environment: ${{ github.event.inputs.target_environment }}
 
     steps:
       - name: Checkout repository metadata
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.git_ref }}
+          ref: ${{ needs.validate.outputs.resolved_sha }}
 
-      - name: Validate selected git ref exists
+      - name: Emit immutable deployment metadata
+        env:
+          DEPLOY_ACTOR: ${{ github.actor }}
+          DEPLOY_ENVIRONMENT: ${{ inputs.target_environment }}
+          REQUESTED_REF: ${{ needs.validate.outputs.canonical_ref }}
+          RESOLVED_SHA: ${{ needs.validate.outputs.resolved_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          set -euo pipefail
-
-          GIT_REF="${{ github.event.inputs.git_ref }}"
-
-          # Verify that the selected ref exists as a branch, tag, or other resolvable ref
-          if ! git rev-parse --verify "refs/heads/${GIT_REF}" >/dev/null 2>&1 &&
-             ! git rev-parse --verify "refs/tags/${GIT_REF}" >/dev/null 2>&1 &&
-             ! git rev-parse --verify "${GIT_REF}" >/dev/null 2>&1; then
-            echo "Error: git ref '${GIT_REF}' does not exist in the checked-out repository."
-            exit 1
-          fi
+          {
+            echo "## Deployment metadata"
+            echo "- Actor: \`$DEPLOY_ACTOR\`"
+            echo "- Requested ref: \`$REQUESTED_REF\`"
+            echo "- Resolved commit: \`$RESOLVED_SHA\`"
+            echo "- Environment: \`$DEPLOY_ENVIRONMENT\`"
+            echo "- Run URL: $RUN_URL"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Validate required deployment secrets
         env:
           PLATFORM: ${{ github.event.inputs.platform }}
@@ -98,23 +194,14 @@ jobs:
           UPCLOUD_DEPLOY_USER: ${{ secrets.UPCLOUD_DEPLOY_USER }}
           UPCLOUD_SSH_PRIVATE_KEY: ${{ secrets.UPCLOUD_SSH_PRIVATE_KEY }}
           UPCLOUD_HOST_FINGERPRINT: ${{ secrets.UPCLOUD_HOST_FINGERPRINT }}
-          AWS_EC2_DEPLOY_HOST: ${{ secrets.AWS_EC2_DEPLOY_HOST }}
-          AWS_EC2_DEPLOY_USER: ${{ secrets.AWS_EC2_DEPLOY_USER }}
-          AWS_EC2_SSH_PRIVATE_KEY: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
           AWS_EC2_HOST_FINGERPRINT: ${{ secrets.AWS_EC2_HOST_FINGERPRINT }}
-          AZURE_VM_DEPLOY_HOST: ${{ secrets.AZURE_VM_DEPLOY_HOST }}
-          AZURE_VM_DEPLOY_USER: ${{ secrets.AZURE_VM_DEPLOY_USER }}
-          AZURE_VM_SSH_PRIVATE_KEY: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
           AZURE_VM_HOST_FINGERPRINT: ${{ secrets.AZURE_VM_HOST_FINGERPRINT }}
-          UPCLOUD_SSH_HOST_FINGERPRINT: ${{ secrets.UPCLOUD_SSH_HOST_FINGERPRINT }}
           AWS_EC2_DEPLOY_HOST: ${{ secrets.AWS_EC2_DEPLOY_HOST }}
           AWS_EC2_DEPLOY_USER: ${{ secrets.AWS_EC2_DEPLOY_USER }}
           AWS_EC2_SSH_PRIVATE_KEY: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
-          AWS_EC2_SSH_HOST_FINGERPRINT: ${{ secrets.AWS_EC2_SSH_HOST_FINGERPRINT }}
           AZURE_VM_DEPLOY_HOST: ${{ secrets.AZURE_VM_DEPLOY_HOST }}
           AZURE_VM_DEPLOY_USER: ${{ secrets.AZURE_VM_DEPLOY_USER }}
           AZURE_VM_SSH_PRIVATE_KEY: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
-          AZURE_VM_SSH_HOST_FINGERPRINT: ${{ secrets.AZURE_VM_SSH_HOST_FINGERPRINT }}
         run: |
           set -euo pipefail
 
@@ -124,21 +211,18 @@ jobs:
               [[ -n "$UPCLOUD_DEPLOY_USER" ]] || { echo "Missing secret: UPCLOUD_DEPLOY_USER"; exit 1; }
               [[ -n "$UPCLOUD_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: UPCLOUD_SSH_PRIVATE_KEY"; exit 1; }
               [[ -n "$UPCLOUD_HOST_FINGERPRINT" ]] || { echo "Missing secret: UPCLOUD_HOST_FINGERPRINT"; exit 1; }
-              [[ -n "$UPCLOUD_SSH_HOST_FINGERPRINT" ]] || { echo "Missing secret: UPCLOUD_SSH_HOST_FINGERPRINT"; exit 1; }
               ;;
             aws-ec2)
               [[ -n "$AWS_EC2_DEPLOY_HOST" ]] || { echo "Missing secret: AWS_EC2_DEPLOY_HOST"; exit 1; }
               [[ -n "$AWS_EC2_DEPLOY_USER" ]] || { echo "Missing secret: AWS_EC2_DEPLOY_USER"; exit 1; }
               [[ -n "$AWS_EC2_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: AWS_EC2_SSH_PRIVATE_KEY"; exit 1; }
               [[ -n "$AWS_EC2_HOST_FINGERPRINT" ]] || { echo "Missing secret: AWS_EC2_HOST_FINGERPRINT"; exit 1; }
-              [[ -n "$AWS_EC2_SSH_HOST_FINGERPRINT" ]] || { echo "Missing secret: AWS_EC2_SSH_HOST_FINGERPRINT"; exit 1; }
               ;;
             azure-vm)
               [[ -n "$AZURE_VM_DEPLOY_HOST" ]] || { echo "Missing secret: AZURE_VM_DEPLOY_HOST"; exit 1; }
               [[ -n "$AZURE_VM_DEPLOY_USER" ]] || { echo "Missing secret: AZURE_VM_DEPLOY_USER"; exit 1; }
               [[ -n "$AZURE_VM_SSH_PRIVATE_KEY" ]] || { echo "Missing secret: AZURE_VM_SSH_PRIVATE_KEY"; exit 1; }
               [[ -n "$AZURE_VM_HOST_FINGERPRINT" ]] || { echo "Missing secret: AZURE_VM_HOST_FINGERPRINT"; exit 1; }
-              [[ -n "$AZURE_VM_SSH_HOST_FINGERPRINT" ]] || { echo "Missing secret: AZURE_VM_SSH_HOST_FINGERPRINT"; exit 1; }
               ;;
             *)
               echo "Unsupported platform: $PLATFORM"
@@ -164,7 +248,6 @@ jobs:
           username: ${{ secrets.UPCLOUD_DEPLOY_USER }}
           key: ${{ secrets.UPCLOUD_SSH_PRIVATE_KEY }}
           fingerprint: ${{ secrets.UPCLOUD_HOST_FINGERPRINT }}
-          fingerprint: ${{ secrets.UPCLOUD_SSH_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
@@ -172,7 +255,7 @@ jobs:
             # Configuration
             DEPLOY_DIR="${DEPLOY_DIR:-/var/www/gofaps}"
             EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
-            GIT_REF="${{ github.event.inputs.git_ref }}"
+            GIT_REF="${{ needs.validate.outputs.resolved_sha }}"
             HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
             
             echo "==> Starting deployment to $DEPLOY_DIR"
@@ -256,7 +339,6 @@ jobs:
           username: ${{ secrets.AWS_EC2_DEPLOY_USER }}
           key: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY }}
           fingerprint: ${{ secrets.AWS_EC2_HOST_FINGERPRINT }}
-          fingerprint: ${{ secrets.AWS_EC2_SSH_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
@@ -264,7 +346,7 @@ jobs:
             # Configuration
             DEPLOY_DIR="${DEPLOY_DIR:-/var/www/gofaps}"
             EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
-            GIT_REF="${{ github.event.inputs.git_ref }}"
+            GIT_REF="${{ needs.validate.outputs.resolved_sha }}"
             HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
             
             echo "==> Starting deployment to $DEPLOY_DIR"
@@ -348,7 +430,6 @@ jobs:
           username: ${{ secrets.AZURE_VM_DEPLOY_USER }}
           key: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
           fingerprint: ${{ secrets.AZURE_VM_HOST_FINGERPRINT }}
-          fingerprint: ${{ secrets.AZURE_VM_SSH_HOST_FINGERPRINT }}
           script_stop: true
           script: |
             set -euo pipefail
@@ -356,7 +437,7 @@ jobs:
             # Configuration
             DEPLOY_DIR="${DEPLOY_DIR:-/var/www/gofaps}"
             EXPECTED_REMOTE="https://github.com/UniversalStandards/GOFAP"
-            GIT_REF="${{ github.event.inputs.git_ref }}"
+            GIT_REF="${{ needs.validate.outputs.resolved_sha }}"
             HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-http://localhost:5000/health}"
             
             echo "==> Starting deployment to $DEPLOY_DIR"
@@ -435,3 +516,30 @@ jobs:
       - name: Dry run completed
         if: ${{ github.event.inputs.dry_run == 'true' }}
         run: echo "Dry run mode enabled. No remote deployment executed."
+
+      - name: Publish health-check result and rollback guidance
+        if: ${{ always() && inputs.dry_run == false }}
+        env:
+          DEPLOY_STATUS: ${{ job.status }}
+          PLATFORM: ${{ inputs.platform }}
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          DEPLOYED_SHA: ${{ needs.validate.outputs.resolved_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$DEPLOY_STATUS" == "success" ]]; then
+            health_result="PASSED: the remote deployment health endpoint returned a successful response."
+          else
+            health_result="FAILED OR NOT REACHED: inspect the platform deployment step in $RUN_URL."
+          fi
+
+          {
+            echo "## Post-deployment health and rollback"
+            echo "- Health check: $health_result"
+            echo "- Platform/environment: \`$PLATFORM\` / \`$TARGET_ENVIRONMENT\`"
+            echo "- Attempted commit: \`$DEPLOYED_SHA\`"
+            echo "- Automatic rollback: each remote deployment restores the logged \`Previous commit\` when image pull, startup, or health verification fails."
+            echo "- Manual recovery: connect to the selected host, change to \`/var/www/gofaps\`, check out the \`Previous commit\` from the deployment log, and run \`docker compose up -d --build\`."
+            echo "- Diagnostics: run \`docker compose ps\` and \`docker compose logs --tail=200\`, then verify \`http://localhost:5000/health\` on the host."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
