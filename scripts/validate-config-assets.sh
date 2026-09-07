@@ -8,7 +8,7 @@ cd "$repo_root"
 json_files=()
 while IFS= read -r -d '' path; do
   [[ ! -f "$path" ]] || json_files+=("$path")
-done < <(git ls-files -z --cached --others --exclude-standard -- '*.json')
+done < <(git ls-files -z --cached --others --exclude-standard -- ':(glob)**/*.json')
 if ((${#json_files[@]} > 0)); then
   python3 - "${json_files[@]}" <<'PYTHON'
 import json
@@ -27,12 +27,12 @@ fi
 yaml_files=()
 while IFS= read -r -d '' path; do
   [[ ! -f "$path" ]] || yaml_files+=("$path")
-done < <(git ls-files -z --cached --others --exclude-standard -- '*.yaml' '*.yml')
+done < <(git ls-files -z --cached --others --exclude-standard -- ':(glob)**/*.yaml' ':(glob)**/*.yml')
 if ((${#yaml_files[@]} > 0)); then
   ruby -ryaml -e '
     ARGV.each do |path|
       YAML.safe_load_file(path, aliases: true)
-    rescue Psych::Exception => error
+    rescue StandardError => error
       warn "#{path}: #{error.message}"
       exit 1
     end

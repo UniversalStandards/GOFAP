@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate configuration assets
-        run: scripts/validate-config-assets.sh
+        run: bash scripts/validate-config-assets.sh
 
   typecheck:
     name: Typecheck
