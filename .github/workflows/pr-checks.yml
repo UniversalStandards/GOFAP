@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Reject duplicate JSON keys
+        run: npm run check:json-duplicates
+
       - name: Typecheck
         run: npm run check
 
