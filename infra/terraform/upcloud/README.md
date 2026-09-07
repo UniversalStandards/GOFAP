@@ -1,4 +1,4 @@
-# Upcloud Terraform baseline
+# UpCloud Terraform baseline
 
 This root composes the provider-specific `networking`, `security`, and `compute`
 modules. Select exactly one overlay from `environments/dev`,

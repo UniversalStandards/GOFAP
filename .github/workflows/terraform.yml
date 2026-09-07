@@ -31,7 +31,7 @@ jobs:
         with:
           terraform_version: 1.13.3
       - name: Check formatting
-        run: terraform fmt -check -recursive ..
+        run: terraform fmt -check -recursive .
       - name: Initialize without remote state
         run: terraform init -backend=false -input=false
       - name: Validate configuration
