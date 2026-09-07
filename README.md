@@ -1,6 +1,6 @@
 <div align="center">
 
-# GOFAP / GOFAPS
+# GOFAPS
 
 ### Government Operations, Financial, Accounting & Personnel System
 
