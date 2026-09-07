@@ -46,6 +46,8 @@ This is an enhanced Jekyll site with comprehensive TSX support, automated deploy
 ├── package.json
 ├── webpack.config.js
 ├── tsconfig.json
+├── tsconfig.app.json
+├── tsconfig.test.json
 └── Gemfile
 ```
 

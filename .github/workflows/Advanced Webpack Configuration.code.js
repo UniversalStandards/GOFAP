@@ -46,7 +46,7 @@ module.exports = {
             loader: 'ts-loader',
             options: {
               transpileOnly: isDevelopment,
-              configFile: 'tsconfig.json'
+              configFile: 'tsconfig.app.json'
             }
           }
         ]

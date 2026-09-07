@@ -5,11 +5,16 @@
     "shared/**/*",
     "server/**/*",
     "tests/**/*",
-    "*.js",
-    "*.ts"
+    "vitest.setup.ts"
   ],
   "exclude": ["node_modules", "build", "dist"],
   "compilerOptions": {
-    "allowJs": true
+    "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo.test",
+    "types": [
+      "node",
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ]
   }
 }

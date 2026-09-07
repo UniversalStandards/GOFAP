@@ -14,6 +14,9 @@ export default defineConfig({
     ],
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
+    typecheck: {
+      tsconfig: "./tsconfig.test.json",
+    },
     coverage: {
       reporter: ["text", "lcov"],
       include: ["client/src/**/*.{ts,tsx}", "server/**/*.{ts,tsx}"],
