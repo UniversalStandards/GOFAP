@@ -483,6 +483,16 @@ docker run -p 3000:3000 --env-file .env gofaps:latest
 
 GOFAPS supports one-click deployment to multiple production environments via **GitHub Actions**. Click the **Deploy** badge at the top of this README, then select **Run workflow** and choose your target platform.
 
+### Engineering & Operations Documentation
+
+| Area | Documentation |
+|---|---|
+| Documentation index | [`docs/README.md`](docs/README.md) |
+| Architecture | [`docs/architecture/README.md`](docs/architecture/README.md) |
+| Architecture decisions | [Deployment model](docs/adr/0001-deployment-model.md) · [Branch protection](docs/adr/0002-branch-protection-strategy.md) · [Environment gating](docs/adr/0003-environment-gating.md) |
+| API | [OpenAPI specification](docs/api/openapi.yaml) · [Authentication and API guide](docs/api/README.md) |
+| Runbooks | [Deploy](docs/runbooks/deploy.md) · [Rollback](docs/runbooks/rollback.md) · [Incident response](docs/runbooks/incident-response.md) · [Secret rotation](docs/runbooks/secret-rotation.md) |
+
 | Platform | Guide | Notes |
 |---|---|---|
 | **AWS EC2** | [`EC2_DEPLOYMENT_GUIDE.md`](EC2_DEPLOYMENT_GUIDE.md) | Primary production target |
