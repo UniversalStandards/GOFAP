@@ -31,7 +31,7 @@ done < <(git ls-files -z --cached --others --exclude-standard -- '*.yaml' '*.yml
 if ((${#yaml_files[@]} > 0)); then
   ruby -ryaml -e '
     ARGV.each do |path|
-      YAML.safe_load_file(path, aliases: true)
+      YAML.safe_load_file(path)
     rescue Psych::Exception => error
       warn "#{path}: #{error.message}"
       exit 1
