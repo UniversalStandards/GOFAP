@@ -16,8 +16,29 @@ permissions:
   actions: write
 
 jobs:
+  config-integrity:
+    name: JSON and YAML integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+      - name: Validate configuration assets
+        run: scripts/validate-config-assets.sh
+
   check:
     name: check
+    needs: config-integrity
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
