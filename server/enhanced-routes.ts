@@ -1,6 +1,7 @@
 // Enhanced API routes for comprehensive government platform
 
-import type { Express } from "express";
+import { createCipheriv, randomBytes } from "node:crypto";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "./replitAuth";
 import { enhancedStorage } from "./enhanced-storage";
 import { serviceRegistry } from "./services/service-registry";
@@ -20,6 +21,64 @@ import {
   insertCitizenServiceSchema,
   insertEnhancedTransactionSchema,
 } from "@shared/schema";
+
+class EndpointError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly details?: unknown,
+  ) {
+    super(message);
+    this.name = "EndpointError";
+  }
+}
+
+const identifierSchema = z.string().trim().min(1).max(128);
+const cardActionSchema = z.enum(["freeze", "unfreeze"]);
+const pinRequestSchema = z.object({ pin: z.string().regex(/^\d{4}$/) }).strict();
+const reportRequestSchema = z.object({
+  reportType: z.enum(["gasb", "audit", "financial"]),
+  period: z.string().trim().min(1).max(64),
+  format: z.enum(["json", "csv", "pdf"]).default("json"),
+}).strict();
+
+function authenticatedUserId(req: Request): string {
+  const result = identifierSchema.safeParse((req.user as any)?.claims?.sub);
+  if (!result.success) {
+    throw new EndpointError(401, "Unauthorized");
+  }
+  return result.data;
+}
+
+function handleEndpointError(res: Response, error: unknown, fallbackMessage: string) {
+  if (error instanceof EndpointError) {
+    return res.status(error.status).json({ message: error.message, details: error.details });
+  }
+  if (error instanceof z.ZodError) {
+    return res.status(400).json({ message: "Invalid request", details: error.flatten() });
+  }
+  console.error(fallbackMessage, error);
+  return res.status(500).json({ message: fallbackMessage });
+}
+
+function currency(value: number): string {
+  return value.toFixed(2);
+}
+
+function encryptBankAccountNumber(accountNumber: string): string {
+  const encodedKey = process.env.BANK_ACCOUNT_ENCRYPTION_KEY;
+  const key = encodedKey ? Buffer.from(encodedKey, "base64") : undefined;
+  if (!key || key.length !== 32) {
+    throw new EndpointError(503, "Bank account enrollment is not configured");
+  }
+  const initializationVector = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, initializationVector);
+  const encrypted = Buffer.concat([cipher.update(accountNumber, "utf8"), cipher.final()]);
+  const authenticationTag = cipher.getAuthTag();
+  return [initializationVector, authenticationTag, encrypted]
+    .map((part) => part.toString("base64url"))
+    .join(".");
+}
 
 export function registerEnhancedRoutes(app: Express) {
   // ========== BULK OPERATIONS ROUTES ==========
@@ -47,27 +106,55 @@ export function registerEnhancedRoutes(app: Express) {
   // Get employee spending summary
   app.get("/api/employee/spending-summary", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
-      
-      // Calculate spending summary (mock data for now)
+      const userId = authenticatedUserId(req);
+      const user = await enhancedStorage.getUser(userId);
+      if (!user?.organizationId) {
+        throw new EndpointError(400, "User not associated with an organization");
+      }
+
+      const [cards, transactions] = await Promise.all([
+        enhancedStorage.getCardsByHolder(userId),
+        enhancedStorage.getEnhancedTransactions(user.organizationId),
+      ]);
+      const cardIds = new Set(cards.map((card) => card.id));
+      const monthStart = new Date();
+      monthStart.setUTCDate(1);
+      monthStart.setUTCHours(0, 0, 0, 0);
+      const employeeTransactions = transactions.filter((transaction) => {
+        const metadata = transaction.metadata as Record<string, unknown> | null;
+        const belongsToEmployee = metadata?.holderId === userId
+          || (typeof metadata?.cardId === "string" && cardIds.has(metadata.cardId));
+        const createdAt = transaction.createdAt ? new Date(transaction.createdAt) : undefined;
+        return belongsToEmployee && createdAt && createdAt >= monthStart;
+      });
+      const sum = (statuses: string[]) => employeeTransactions
+        .filter((transaction) => statuses.includes(transaction.status ?? ""))
+        .reduce((total, transaction) => total + Number(transaction.amount), 0);
+      const currentMonth = sum(["approved", "processing", "completed"]);
+      const pending = sum(["pending"]);
+      const monthlyLimit = cards.reduce(
+        (total, card) => total + Number(card.monthlyLimit ?? card.spendingLimit ?? 0),
+        0,
+      );
       const summary = {
-        currentMonth: "2,450.00",
-        monthlyLimit: "5,000.00",
-        available: "2,550.00",
-        pending: "125.50"
+        currentMonth: currency(currentMonth),
+        monthlyLimit: currency(monthlyLimit),
+        available: currency(Math.max(0, monthlyLimit - currentMonth - pending)),
+        pending: currency(pending),
       };
       
       res.json(summary);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch spending summary" });
+      handleEndpointError(res, error, "Failed to fetch spending summary");
     }
   });
 
   // Employee freeze/unfreeze their own card
   app.patch("/api/employee/cards/:cardId/:action", isAuthenticated, async (req: any, res) => {
     try {
-      const { cardId, action } = req.params;
-      const userId = req.user.claims.sub;
+      const cardId = identifierSchema.parse(req.params.cardId);
+      const action = cardActionSchema.parse(req.params.action);
+      const userId = authenticatedUserId(req);
       
       // Verify card belongs to employee
       const card = await enhancedStorage.getIssuedCard(cardId);
@@ -83,21 +170,16 @@ export function registerEnhancedRoutes(app: Express) {
       
       res.json({ success: true, status: action === 'freeze' ? 'blocked' : 'active' });
     } catch (error) {
-      res.status(500).json({ message: "Failed to update card status" });
+      handleEndpointError(res, error, "Failed to update card status");
     }
   });
 
   // Set card PIN (note: PIN functionality should be handled by payment provider)
   app.post("/api/employee/cards/:cardId/pin", isAuthenticated, async (req: any, res) => {
     try {
-      const { cardId } = req.params;
-      const { pin } = req.body;
-      const userId = req.user.claims.sub;
-      
-      // Validate PIN format
-      if (!pin || !/^\d{4}$/.test(pin)) {
-        return res.status(400).json({ message: "Invalid PIN format" });
-      }
+      const cardId = identifierSchema.parse(req.params.cardId);
+      const { pin } = pinRequestSchema.parse(req.body);
+      const userId = authenticatedUserId(req);
       
       // Verify card belongs to employee
       const card = await enhancedStorage.getIssuedCard(cardId);
@@ -112,21 +194,19 @@ export function registerEnhancedRoutes(app: Express) {
         return res.status(400).json({ message: "User not associated with an organization" });
       }
       
-      const provider = serviceRegistry.getService(user.organizationId, 'payment', card.provider);
-      
-      // In production, call the provider's API to set PIN
-      // Example: if (provider && provider.setCardPIN) {
-      //   await provider.setCardPIN(card.externalCardId, pin);
-      // }
-      
-      // For now, acknowledge the request
-      // TODO: Implement actual PIN setting via payment provider API
-      res.json({ 
-        success: true, 
-        message: "PIN setting is handled by the payment provider. Please contact support for PIN management." 
-      });
+      const provider = serviceRegistry.getService(user.organizationId, 'payment', card.provider) as
+        | { setCardPIN?: (externalCardId: string, pin: string) => Promise<{ success: boolean; error?: string }> }
+        | undefined;
+      if (!provider?.setCardPIN || !card.externalCardId) {
+        throw new EndpointError(501, "PIN management is not supported by this card provider");
+      }
+      const result = await provider.setCardPIN(card.externalCardId, pin);
+      if (!result.success) {
+        throw new EndpointError(502, result.error ?? "Card provider rejected the PIN update");
+      }
+      res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ message: "Failed to set PIN" });
+      handleEndpointError(res, error, "Failed to set PIN");
     }
   });
 
@@ -442,16 +522,16 @@ export function registerEnhancedRoutes(app: Express) {
   // Public services listing
   app.get("/api/public/services", async (req, res) => {
     try {
-      const services = [
-        { id: 'tax-payment', name: 'Property Tax Payment', category: 'tax', description: 'Pay your property taxes online' },
-        { id: 'utility-bill', name: 'Utility Bill Payment', category: 'utility', description: 'Pay water, electricity, and gas bills' },
-        { id: 'permits', name: 'Permits & Licenses', category: 'permit', description: 'Apply for building permits and business licenses' },
-        { id: 'court-fines', name: 'Court Fines & Fees', category: 'fine', description: 'Pay traffic tickets and court fees' },
-        { id: 'parking', name: 'Parking Permits', category: 'permit', description: 'Purchase monthly or annual parking permits' },
-      ];
+      const records = await enhancedStorage.getCitizenServices('public');
+      const services = Array.from(new Map(records.map((record) => [record.serviceType, {
+        id: record.id,
+        name: record.serviceName,
+        category: record.serviceType,
+        description: record.notes ?? "",
+      }])).values());
       res.json(services);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch public services" });
+      handleEndpointError(res, error, "Failed to fetch public services");
     }
   });
 
@@ -792,14 +872,11 @@ export function registerEnhancedRoutes(app: Express) {
         return res.status(400).json({ message: "Invalid routing number format" });
       }
       
-      // TODO: In production, encrypt the account number before storage
-      // Example: const encryptedAccountNumber = await encryptSensitiveData(accountNumber);
-      
       // Create bank account for direct deposit
       const account = await enhancedStorage.createBankAccount({
         organizationId: user.organizationId,
         accountName: accountName || `${user.firstName} ${user.lastName} Direct Deposit`,
-        accountNumber, // TODO: Should be encrypted in production with proper key management
+        accountNumber: encryptBankAccountNumber(accountNumber),
         routingNumber,
         bankName,
         accountType,
@@ -809,8 +886,7 @@ export function registerEnhancedRoutes(app: Express) {
       
       res.json({ success: true, message: "Direct deposit enrollment successful", accountId: account.id });
     } catch (error) {
-      console.error("Enrollment error:", error);
-      res.status(500).json({ message: "Failed to enroll in direct deposit" });
+      handleEndpointError(res, error, "Failed to enroll in direct deposit");
     }
   });
 
@@ -819,21 +895,21 @@ export function registerEnhancedRoutes(app: Express) {
   // Get payment providers status
   app.get("/api/payment-providers", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = authenticatedUserId(req);
       const user = await enhancedStorage.getUser(userId);
-      
-      const providers = [
-        { name: 'stripe', status: 'active', methods: ['ach', 'wire', 'card'] },
-        { name: 'paypal', status: 'active', methods: ['instant', 'card'] },
-        { name: 'dwolla', status: 'active', methods: ['ach'] },
-        { name: 'wise', status: 'inactive', methods: ['wire', 'international'] },
-        { name: 'square', status: 'inactive', methods: ['card', 'ach'] },
-      ];
-      
+      if (!user?.organizationId) {
+        throw new EndpointError(400, "User not associated with an organization");
+      }
+      const storedProviders = await enhancedStorage.getPaymentProviders(user.organizationId);
+      const providers = storedProviders.map((provider) => ({
+        id: provider.id,
+        name: provider.provider,
+        status: provider.isActive ? "active" : "inactive",
+        methods: provider.features ?? [],
+      }));
       res.json(providers);
     } catch (error) {
-      console.error("Providers fetch error:", error);
-      res.status(500).json({ message: "Failed to fetch providers" });
+      handleEndpointError(res, error, "Failed to fetch providers");
     }
   });
   
@@ -1564,8 +1640,9 @@ export function registerEnhancedRoutes(app: Express) {
   // Generate comprehensive report
   app.post("/api/reports/generate", isAuthenticated, async (req: any, res) => {
     try {
-      const { reportType, period, format } = req.body;
-      const user = await enhancedStorage.getUser(req.user.claims.sub);
+      const { reportType, period, format } = reportRequestSchema.parse(req.body);
+      const userId = authenticatedUserId(req);
+      const user = await enhancedStorage.getUser(userId);
       
       if (!user?.organizationId) {
         return res.status(400).json({ message: "Organization not found" });
@@ -1586,14 +1663,11 @@ export function registerEnhancedRoutes(app: Express) {
           const quickbooks = serviceRegistry.getService(user.organizationId, 'government', 'quickbooks');
           report = await quickbooks.getFinancialReports('comprehensive', period);
           break;
-        default:
-          report = { type: reportType, period, data: 'Report data placeholder' };
       }
       
-      res.json({ success: true, report });
+      res.json({ success: true, format, report });
     } catch (error) {
-      console.error("Report generation error:", error);
-      res.status(500).json({ message: "Report generation failed" });
+      handleEndpointError(res, error, "Report generation failed");
     }
   });
 }
