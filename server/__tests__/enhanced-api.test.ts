@@ -293,6 +293,23 @@ describe("Enhanced storage integration", () => {
     createBudgetSpy.mockRestore();
   });
 
+  it("rejects invalid budget date strings", async () => {
+    const createBudgetSpy = vi.spyOn(enhancedStorage as any, "createBudget");
+
+    const response = await request(server).post("/api/budgets").send({
+      name: "Capital Budget",
+      fiscalYear: 2025,
+      totalAmount: "250000.00",
+      startDate: "not-a-date",
+      endDate: "2025-12-31T23:59:59Z",
+    });
+
+    expect(response.status).toBe(400);
+    expect(createBudgetSpy).not.toHaveBeenCalled();
+
+    createBudgetSpy.mockRestore();
+  });
+
   it("coerces ISO expense dates before validation", async () => {
     const createExpenseSpy = vi
       .spyOn(enhancedStorage as any, "createExpense")
@@ -320,6 +337,21 @@ describe("Enhanced storage integration", () => {
       submittedBy: user.id,
     });
     expect(createExpenseSpy.mock.calls[0][0].expenseDate).toBeInstanceOf(Date);
+
+    createExpenseSpy.mockRestore();
+  });
+
+  it("rejects invalid expense date strings", async () => {
+    const createExpenseSpy = vi.spyOn(enhancedStorage as any, "createExpense");
+
+    const response = await request(server).post("/api/expenses").send({
+      amount: "125.50",
+      description: "Travel reimbursement",
+      expenseDate: "not-a-date",
+    });
+
+    expect(response.status).toBe(400);
+    expect(createExpenseSpy).not.toHaveBeenCalled();
 
     createExpenseSpy.mockRestore();
   });

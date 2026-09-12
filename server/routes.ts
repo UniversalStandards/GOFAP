@@ -15,7 +15,12 @@ import { z } from "zod";
 import { registerEnhancedRoutes } from "./enhanced-routes";
 
 function coerceDateString(value: unknown) {
-  return typeof value === "string" ? new Date(value) : value;
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const parsedValue = new Date(value);
+  return Number.isNaN(parsedValue.getTime()) ? value : parsedValue;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
