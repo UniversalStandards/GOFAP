@@ -19,8 +19,8 @@ Use this runbook to deploy an approved GOFAPS release to `dev`, `staging`, or `p
 2. Open **Actions → Deploy (Selected Platform) → Run workflow**.
 3. Select the platform and environment, enter the immutable git ref, keep **dry run** enabled, and dispatch.
 4. Review validation output. Confirm target, resolved SHA, host fingerprint, required secrets, and intended changes. Output must not disclose secret values.
-5. Deploy to `dev`. Verify the checks below, then repeat with the identical ref in `staging`.
-6. In staging, exercise login/logout, current-user lookup, one read-only organization-scoped flow, and the release-specific critical path. Confirm dashboards and logs show no regression.
+5. Rerun for `dev` with the identical ref and set **dry run** to false so the deployment executes. Verify the checks below.
+6. Rerun for `staging` with the identical ref and set **dry run** to false. In staging, exercise login/logout, current-user lookup, one read-only organization-scoped flow, and the release-specific critical path. Confirm dashboards and logs show no regression.
 7. Obtain the GitHub `production` environment approval. Reconfirm the SHA, backup, rollback owner, expected impact, and change window. Set **dry run** to false and dispatch production.
 8. Watch workflow output without copying credentials or session data. Do not run concurrent deployments to the same platform and environment.
 9. Complete post-deployment verification and observe for at least 15 minutes (longer when the change ticket requires it).
