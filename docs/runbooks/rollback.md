@@ -26,7 +26,7 @@ git cat-file -e "<KNOWN_GOOD_SHA>^{commit}"
 git checkout --detach <KNOWN_GOOD_SHA>
 docker compose up -d --build
 docker compose ps
-curl --fail-with-body --retry 6 --retry-delay 5 http://localhost:5000/health/ready
+curl --fail --show-error --retry 6 --retry-delay 5 http://localhost:5000/health/ready
 ```
 
 If the deployment uses promoted registry artifacts, deploy the recorded digest instead of rebuilding. Never use a moving `latest` tag as rollback evidence.
