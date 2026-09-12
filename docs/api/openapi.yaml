@@ -1,0 +1,585 @@
+openapi: 3.1.0
+info:
+  title: GOFAPS Server API
+  version: 1.0.0
+  summary: Core GOFAPS authentication, financial, and operational endpoints
+  license:
+    name: MIT
+  description: >-
+    Contract for the principal server endpoints. Browser authentication uses OIDC and
+    a secure server-side session cookie. Unless a path explicitly sets security to an
+    empty array, it requires an authenticated session.
+servers:
+  - url: http://localhost:5000
+    description: Local development
+  - url: https://{host}
+    description: Deployed environment
+    variables:
+      host:
+        default: gofaps.example.gov
+security:
+  - sessionCookie: []
+tags:
+  - name: Authentication
+    description: Browser OIDC login and session lifecycle
+  - name: Health
+    description: Process and dependency health probes
+  - name: Organizations
+    description: Organization records
+  - name: Budgets
+    description: Organization budget management
+  - name: Vendors
+    description: Organization vendor management
+  - name: Payments
+    description: Organization payment management
+  - name: Expenses
+    description: Organization expense management
+  - name: Wallets
+    description: Organization digital wallet management
+  - name: Analytics
+    description: Organization-level operational summaries
+paths:
+  /api/login:
+    get:
+      tags: [Authentication]
+      summary: Start OIDC login
+      description: Redirects the browser to the configured identity provider.
+      operationId: startLogin
+      security: []
+      responses:
+        '302':
+          description: Redirect to the identity provider
+          headers:
+            Location:
+              schema: { type: string, format: uri }
+  /api/callback:
+    get:
+      tags: [Authentication]
+      summary: Complete the OIDC authorization-code flow
+      operationId: oidcCallback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema: { type: string }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '302':
+          description: Redirect to the application on success or back to login on failure
+          headers:
+            Location:
+              schema: { type: string, format: uri-reference }
+            Set-Cookie:
+              description: Secure, HTTP-only session cookie
+              schema: { type: string }
+  /api/logout:
+    get:
+      tags: [Authentication]
+      summary: End the local and provider sessions
+      operationId: logout
+      security: []
+      responses:
+        '302':
+          description: Redirect to the identity provider logout endpoint
+  /api/auth/user:
+    get:
+      tags: [Authentication]
+      summary: Get the authenticated user
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /health:
+    get:
+      tags: [Health]
+      summary: Get basic service health
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Process is running
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Check process liveness
+      operationId: getLiveness
+      security: []
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Check service and database readiness
+      operationId: getReadiness
+      security: []
+      responses:
+        '200':
+          description: Service can receive traffic
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Readiness' }
+        '503':
+          description: A required dependency is unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Readiness' }
+  /api/organizations:
+    get:
+      tags: [Organizations]
+      summary: List organizations
+      operationId: listOrganizations
+      responses:
+        '200': { $ref: '#/components/responses/OrganizationList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Organizations]
+      summary: Create an organization
+      operationId: createOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrganizationInput' }
+      responses:
+        '201':
+          description: Organization created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/organizations/{id}:
+    get:
+      tags: [Organizations]
+      summary: Get an organization
+      operationId: getOrganization
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Organization
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/budgets:
+    get:
+      tags: [Budgets]
+      summary: List budgets for the current organization
+      operationId: listBudgets
+      responses:
+        '200':
+          description: Budget list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Budget' } }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Budgets]
+      summary: Create a budget for the current organization
+      operationId: createBudget
+      requestBody: { $ref: '#/components/requestBodies/Budget' }
+      responses:
+        '201':
+          description: Budget created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Budget' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/vendors:
+    get:
+      tags: [Vendors]
+      summary: List vendors for the current organization
+      operationId: listVendors
+      responses:
+        '200':
+          description: Vendor list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Vendor' } }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Vendors]
+      summary: Create a vendor for the current organization
+      operationId: createVendor
+      requestBody: { $ref: '#/components/requestBodies/Vendor' }
+      responses:
+        '201':
+          description: Vendor created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vendor' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/payments:
+    get:
+      tags: [Payments]
+      summary: List payments for the current organization
+      operationId: listPayments
+      responses:
+        '200':
+          description: Payment list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Payments]
+      summary: Create a payment for the current organization
+      operationId: createPayment
+      requestBody: { $ref: '#/components/requestBodies/Payment' }
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/payments/pending:
+    get:
+      tags: [Payments]
+      summary: List pending payments for the current organization
+      operationId: listPendingPayments
+      responses:
+        '200':
+          description: Pending payment list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/expenses:
+    get:
+      tags: [Expenses]
+      summary: List expenses for the current organization
+      operationId: listExpenses
+      responses:
+        '200':
+          description: Expense list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Expense' } }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Expenses]
+      summary: Create an expense for the current organization
+      operationId: createExpense
+      requestBody: { $ref: '#/components/requestBodies/Expense' }
+      responses:
+        '201':
+          description: Expense created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Expense' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/wallets:
+    get:
+      tags: [Wallets]
+      summary: List wallets for the current organization
+      operationId: listWallets
+      responses:
+        '200':
+          description: Wallet list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Wallet' } }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Wallets]
+      summary: Create a wallet for the current organization
+      operationId: createWallet
+      requestBody: { $ref: '#/components/requestBodies/Wallet' }
+      responses:
+        '201':
+          description: Wallet created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Wallet' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/analytics/stats:
+    get:
+      tags: [Analytics]
+      summary: Get organization summary statistics
+      operationId: getAnalyticsStats
+      responses:
+        '200':
+          description: Organization statistics
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/analytics/top-vendors:
+    get:
+      tags: [Analytics]
+      summary: Get top vendors for the current organization
+      operationId: getTopVendors
+      responses:
+        '200':
+          description: Ranked vendors
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, additionalProperties: true } }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/analytics/recent-activity:
+    get:
+      tags: [Analytics]
+      summary: Get recent activity for the current organization
+      operationId: getRecentActivity
+      responses:
+        '200':
+          description: Recent activity
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, additionalProperties: true } }
+        '400': { $ref: '#/components/responses/OrganizationRequired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: connect.sid
+      description: Opaque session cookie established by the OIDC callback; never expose it to JavaScript.
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+  requestBodies:
+    Budget:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/BudgetInput' }
+    Vendor:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/VendorInput' }
+    Payment:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PaymentInput' }
+    Expense:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ExpenseInput' }
+    Wallet:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/WalletInput' }
+  responses:
+    BadRequest:
+      description: Invalid request or missing organization association
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    OrganizationRequired:
+      description: Authenticated user is not associated with an organization
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Authentication is missing, expired, or cannot be refreshed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    OrganizationList:
+      description: Organization list
+      content:
+        application/json:
+          schema: { type: array, items: { $ref: '#/components/schemas/Organization' } }
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        errors:
+          type: array
+          items: { type: object, additionalProperties: true }
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+        timestamp: { type: string, format: date-time }
+        uptime: { type: number, minimum: 0 }
+    Readiness:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ready, not_ready] }
+        checks: { type: object, additionalProperties: true }
+        timestamp: { type: string, format: date-time }
+        error:
+          type: string
+          description: Present when readiness fails; sanitized error message for operators.
+    User:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        email: { type: [string, 'null'], format: email }
+        firstName: { type: [string, 'null'] }
+        lastName: { type: [string, 'null'] }
+        profileImageUrl: { type: [string, 'null'], format: uri }
+        organizationId: { type: [string, 'null'] }
+      additionalProperties: true
+    OrganizationInput:
+      type: object
+      required: [name, type]
+      properties:
+        name: { type: string, minLength: 1 }
+        type:
+          type: string
+          description: Organization classification such as municipality, county, state, or federal
+        address: { type: string }
+        phone: { type: string }
+        email: { type: string, format: email }
+      additionalProperties: true
+    Organization:
+      allOf:
+        - $ref: '#/components/schemas/OrganizationInput'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string }
+    BudgetInput:
+      type: object
+      required: [name, fiscalYear, totalAmount, startDate, endDate]
+      properties:
+        name: { type: string, minLength: 1 }
+        fiscalYear: { type: integer }
+        totalAmount: { type: string, description: Decimal monetary amount }
+        description: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        status: { type: string, enum: [draft, proposed, approved, active, closed] }
+      additionalProperties: true
+    Budget:
+      allOf:
+        - $ref: '#/components/schemas/BudgetInput'
+        - $ref: '#/components/schemas/StoredResource'
+    VendorInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        status: { type: string, enum: [active, inactive, suspended, pending_approval] }
+      additionalProperties: true
+    Vendor:
+      allOf:
+        - $ref: '#/components/schemas/VendorInput'
+        - $ref: '#/components/schemas/StoredResource'
+    PaymentInput:
+      type: object
+      required: [amount, type]
+      properties:
+        amount: { type: string, description: Decimal monetary amount }
+        vendorId: { type: string }
+        description: { type: string }
+        type: { type: string, enum: [vendor, payroll, expense, tax, transfer, ach, wire, instant, check, cryptocurrency, international] }
+        status: { type: string, enum: [pending, approved, processing, completed, failed, cancelled] }
+        dueDate: { type: string, format: date-time }
+      additionalProperties: true
+    Payment:
+      allOf:
+        - $ref: '#/components/schemas/PaymentInput'
+        - $ref: '#/components/schemas/StoredResource'
+    ExpenseInput:
+      type: object
+      required: [amount, description, expenseDate]
+      properties:
+        amount: { type: string, description: Decimal monetary amount }
+        description: { type: string, minLength: 1 }
+        category: { type: string }
+        status: { type: string, enum: [draft, submitted, approved, rejected, reimbursed] }
+        expenseDate: { type: string, format: date-time }
+      additionalProperties: true
+    Expense:
+      allOf:
+        - $ref: '#/components/schemas/ExpenseInput'
+        - $ref: '#/components/schemas/StoredResource'
+    WalletInput:
+      type: object
+      required: [name, type]
+      properties:
+        name: { type: string, minLength: 1 }
+        balance: { type: string, description: Decimal monetary amount }
+        type: { type: string, enum: [checking, savings, payroll, expense, tax_collection, treasury, investment, escrow, grant, utility, digital] }
+        accountNumber: { type: string }
+        routingNumber: { type: string }
+      additionalProperties: true
+    Wallet:
+      allOf:
+        - $ref: '#/components/schemas/WalletInput'
+        - $ref: '#/components/schemas/StoredResource'
+    StoredResource:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        organizationId: { type: string }
+        createdAt: { type: string, format: date-time }
+      additionalProperties: true

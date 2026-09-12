@@ -14,6 +14,15 @@ import {
 import { z } from "zod";
 import { registerEnhancedRoutes } from "./enhanced-routes";
 
+function coerceDateString(value: unknown) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const parsedValue = new Date(value);
+  return Number.isNaN(parsedValue.getTime()) ? value : parsedValue;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -95,6 +104,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertBudgetSchema.parse({
         ...req.body,
+        startDate: coerceDateString(req.body.startDate),
+        endDate: coerceDateString(req.body.endDate),
         organizationId: user.organizationId,
         createdBy: user.id,
       });
@@ -225,6 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertExpenseSchema.parse({
         ...req.body,
+        expenseDate: coerceDateString(req.body.expenseDate),
         organizationId: user.organizationId,
         submittedBy: user.id,
       });

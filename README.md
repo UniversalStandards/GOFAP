@@ -87,6 +87,15 @@ Vitest covers server, client, and integration behavior. Add regression tests alo
 
 GitHub Actions separates validation, image creation, promotion, and host deployment:
 
+### Engineering & Operations Documentation
+
+| Area | Documentation |
+|---|---|
+| Documentation index | [`docs/README.md`](docs/README.md) |
+| Architecture | [`docs/architecture/README.md`](docs/architecture/README.md) |
+| Architecture decisions | [Deployment model](docs/adr/0001-deployment-model.md) · [Branch protection](docs/adr/0002-branch-protection-strategy.md) · [Environment gating](docs/adr/0003-environment-gating.md) |
+| API | [OpenAPI specification](docs/api/openapi.yaml) · [Authentication and API guide](docs/api/README.md) |
+| Runbooks | [Deploy](docs/runbooks/deploy.md) · [Rollback](docs/runbooks/rollback.md) · [Incident response](docs/runbooks/incident-response.md) · [Secret rotation](docs/runbooks/secret-rotation.md) |
 | Workflow | Purpose |
 |---|---|
 | [`pr-checks.yml`](.github/workflows/pr-checks.yml) | Typecheck, lint, test, build, and retain build artifacts for pull requests |

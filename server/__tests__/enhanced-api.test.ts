@@ -260,6 +260,102 @@ describe("Enhanced storage integration", () => {
     expect(response.body).toEqual(serialize(expenses));
   });
 
+  it("coerces ISO budget dates before validation", async () => {
+    const createBudgetSpy = vi
+      .spyOn(enhancedStorage as any, "createBudget")
+      .mockImplementation(async (budget: any) => ({
+        id: "budget-created",
+        allocatedAmount: "0",
+        spentAmount: "0",
+        status: "draft",
+        createdAt: new Date("2025-01-01T00:00:00Z"),
+        updatedAt: new Date("2025-01-01T00:00:00Z"),
+        ...budget,
+      }));
+
+    const response = await request(server).post("/api/budgets").send({
+      name: "Capital Budget",
+      fiscalYear: 2025,
+      totalAmount: "250000.00",
+      startDate: "2025-01-01T00:00:00Z",
+      endDate: "2025-12-31T23:59:59Z",
+    });
+
+    expect(response.status).toBe(201);
+    expect(createBudgetSpy).toHaveBeenCalledOnce();
+    expect(createBudgetSpy.mock.calls[0][0]).toMatchObject({
+      organizationId: user.organizationId,
+      createdBy: user.id,
+    });
+    expect(createBudgetSpy.mock.calls[0][0].startDate).toBeInstanceOf(Date);
+    expect(createBudgetSpy.mock.calls[0][0].endDate).toBeInstanceOf(Date);
+
+    createBudgetSpy.mockRestore();
+  });
+
+  it("rejects invalid budget date strings", async () => {
+    const createBudgetSpy = vi.spyOn(enhancedStorage as any, "createBudget");
+
+    const response = await request(server).post("/api/budgets").send({
+      name: "Capital Budget",
+      fiscalYear: 2025,
+      totalAmount: "250000.00",
+      startDate: "not-a-date",
+      endDate: "2025-12-31T23:59:59Z",
+    });
+
+    expect(response.status).toBe(400);
+    expect(createBudgetSpy).not.toHaveBeenCalled();
+
+    createBudgetSpy.mockRestore();
+  });
+
+  it("coerces ISO expense dates before validation", async () => {
+    const createExpenseSpy = vi
+      .spyOn(enhancedStorage as any, "createExpense")
+      .mockImplementation(async (expense: any) => ({
+        id: "expense-created",
+        status: "draft",
+        receiptUrl: null,
+        approvedBy: null,
+        budgetCategoryId: null,
+        createdAt: new Date("2025-01-01T00:00:00Z"),
+        updatedAt: new Date("2025-01-01T00:00:00Z"),
+        ...expense,
+      }));
+
+    const response = await request(server).post("/api/expenses").send({
+      amount: "125.50",
+      description: "Travel reimbursement",
+      expenseDate: "2025-03-10T08:30:00Z",
+    });
+
+    expect(response.status).toBe(201);
+    expect(createExpenseSpy).toHaveBeenCalledOnce();
+    expect(createExpenseSpy.mock.calls[0][0]).toMatchObject({
+      organizationId: user.organizationId,
+      submittedBy: user.id,
+    });
+    expect(createExpenseSpy.mock.calls[0][0].expenseDate).toBeInstanceOf(Date);
+
+    createExpenseSpy.mockRestore();
+  });
+
+  it("rejects invalid expense date strings", async () => {
+    const createExpenseSpy = vi.spyOn(enhancedStorage as any, "createExpense");
+
+    const response = await request(server).post("/api/expenses").send({
+      amount: "125.50",
+      description: "Travel reimbursement",
+      expenseDate: "not-a-date",
+    });
+
+    expect(response.status).toBe(400);
+    expect(createExpenseSpy).not.toHaveBeenCalled();
+
+    createExpenseSpy.mockRestore();
+  });
+
   it("serves digital wallets with persisted data", async () => {
     const response = await request(server).get("/api/wallets");
     expect(response.status).toBe(200);
