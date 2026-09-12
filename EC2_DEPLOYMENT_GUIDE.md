@@ -682,3 +682,7 @@ For issues or questions:
 **Deployment Checklist**: See PRODUCTION_AUDIT.md for complete production readiness checklist.
 
 **Last Updated**: November 3, 2025
+
+## Terraform baseline
+
+The supported AWS infrastructure-as-code root is [`infra/terraform/aws/`](./infra/terraform/aws/README.md). It provisions the baseline VPC, subnet, security group, and EC2 compute described in this guide. Review the shared [environment and remote-state strategy](./infra/terraform/README.md) before applying it.

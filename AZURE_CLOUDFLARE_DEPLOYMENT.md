@@ -956,3 +956,7 @@ curl https://yourdomain.com/health/ready
 **Last Updated**: January 9, 2026  
 **Status**: Production Ready  
 **Next Review**: February 9, 2026
+
+## Terraform baseline
+
+The supported Azure infrastructure-as-code root is [`infra/terraform/azure/`](./infra/terraform/azure/README.md). It provisions a resource group, VNet/subnet, network security group, and Linux VM. Review the shared [environment and remote-state strategy](./infra/terraform/README.md) before applying it.

@@ -18,6 +18,10 @@ Quick reference for deploying GOFAPS in different environments.
 
 ---
 
+## Infrastructure as code
+
+Terraform baselines are available for [AWS](./infra/terraform/aws/README.md), [Azure](./infra/terraform/azure/README.md), and [UpCloud](./infra/terraform/upcloud/README.md). Their shared [environment overlay and remote-state strategy](./infra/terraform/README.md) is mandatory reading before provisioning.
+
 ## Quick Start
 
 ### Prerequisites
