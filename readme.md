@@ -147,3 +147,19 @@ The platform is designed to integrate with multiple payment processors:
 - **clsx**: Conditional className utility
 - **memoizee**: Function memoization
 - **nanoid**: Unique ID generation
+
+## Documentation
+
+### Architecture Decision Records (ADRs)
+- [ADR-001: Deployment Model](docs/adr/001-deployment-model.md)
+- [ADR-002: Environment Gating Policy](docs/adr/002-environment-gating.md)
+- [ADR-003: CI Status-Check Policy](docs/adr/003-ci-status-check-policy.md)
+
+### API Contract
+- [OpenAPI Skeleton](docs/api/openapi.yaml)
+
+### Operational Runbooks
+- [Deployment Runbook](docs/runbooks/deployment.md)
+- [Rollback Runbook](docs/runbooks/rollback.md)
+- [Incident Response Runbook](docs/runbooks/incident-response.md)
+- [Secrets Rotation Runbook](docs/runbooks/secrets-rotation.md)

@@ -1,0 +1,258 @@
+openapi: 3.1.0
+info:
+  title: GOFAPS Core API
+  version: 0.1.0
+  description: |
+    Baseline OpenAPI skeleton for the GOFAPS core server endpoints.
+    This contract defines expected authentication behavior and initial
+    endpoint groups for health, user session data, and core entities.
+servers:
+  - url: https://api.gofaps.example.gov
+    description: Production
+  - url: https://staging-api.gofaps.example.gov
+    description: Staging
+  - url: http://localhost:5000
+    description: Local development
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+tags:
+  - name: Health
+    description: Service health and readiness endpoints.
+  - name: Auth
+    description: Authentication and session-related endpoints.
+  - name: Organizations
+    description: Organization-level resources.
+  - name: Budgets
+    description: Budget planning and tracking resources.
+  - name: Payments
+    description: Payment processing and transaction resources.
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Service liveness check.
+      responses:
+        '200':
+          description: Service is reachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/health/readiness:
+    get:
+      tags: [Health]
+      summary: Service readiness check for dependencies.
+      responses:
+        '200':
+          description: Dependencies are healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: One or more dependencies are unavailable.
+  /api/auth/user:
+    get:
+      tags: [Auth]
+      summary: Retrieve authenticated user profile.
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Authenticated user returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Authentication is required.
+  /api/organizations:
+    get:
+      tags: [Organizations]
+      summary: List organizations accessible to the current user.
+      responses:
+        '200':
+          description: Organization list returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organization'
+        '401':
+          description: Authentication is required.
+    post:
+      tags: [Organizations]
+      summary: Create a new organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+      responses:
+        '201':
+          description: Organization created.
+        '400':
+          description: Invalid request.
+        '401':
+          description: Authentication is required.
+  /api/budgets:
+    get:
+      tags: [Budgets]
+      summary: List budgets for an organization and fiscal period.
+      parameters:
+        - in: query
+          name: organizationId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: fiscalYear
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Budget list returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Budget'
+        '401':
+          description: Authentication is required.
+  /api/payments:
+    get:
+      tags: [Payments]
+      summary: List payment records.
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment list returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+        '401':
+          description: Authentication is required.
+    post:
+      tags: [Payments]
+      summary: Create a payment request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment request created.
+        '400':
+          description: Invalid request.
+        '401':
+          description: Authentication is required.
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: connect.sid
+      description: Session cookie established after successful login.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Optional bearer token for service-to-service or API clients.
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+      required: [status]
+    ReadinessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ready
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      required: [status]
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+      required: [id, email]
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required: [id, name]
+    CreateOrganizationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+      required: [name]
+    Budget:
+      type: object
+      properties:
+        id:
+          type: string
+        organizationId:
+          type: string
+        fiscalYear:
+          type: integer
+      required: [id, organizationId, fiscalYear]
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+        organizationId:
+          type: string
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        status:
+          type: string
+      required: [id, organizationId, amount, currency, status]
+    CreatePaymentRequest:
+      type: object
+      properties:
+        organizationId:
+          type: string
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+      required: [organizationId, amount, currency]
