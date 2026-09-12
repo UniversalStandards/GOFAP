@@ -471,6 +471,9 @@ components:
         status: { type: string, enum: [ready, not_ready] }
         checks: { type: object, additionalProperties: true }
         timestamp: { type: string, format: date-time }
+        error:
+          type: string
+          description: Present when readiness fails; sanitized error message for operators.
     User:
       type: object
       required: [id]
