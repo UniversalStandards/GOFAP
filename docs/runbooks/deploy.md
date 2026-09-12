@@ -32,8 +32,8 @@ Set the URL explicitly and do not use a production URL by default:
 
 ```bash
 export BASE_URL=https://staging.example.gov
-curl --fail-with-body --silent --show-error "$BASE_URL/health/live"
-curl --fail-with-body --silent --show-error "$BASE_URL/health/ready"
+curl --fail --silent --show-error "$BASE_URL/health/live"
+curl --fail --silent --show-error "$BASE_URL/health/ready"
 ```
 
 Confirm all of the following:
