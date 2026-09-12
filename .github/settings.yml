@@ -15,6 +15,7 @@ branches:
       required_status_checks:
         strict: true
         contexts:
+          - "CI / JSON and YAML integrity"
           - "CI / Typecheck"
           - "PR Checks / check"
           - "PR Checks / test"
@@ -36,6 +37,7 @@ branches:
       required_status_checks:
         strict: true
         contexts:
+          - "CI / JSON and YAML integrity"
           - "CI / Typecheck"
           - "PR Checks / check"
           - "PR Checks / test"
