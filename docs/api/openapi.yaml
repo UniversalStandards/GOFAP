@@ -81,6 +81,7 @@ paths:
       tags: [Authentication]
       summary: End the local and provider sessions
       operationId: logout
+      security: []
       responses:
         '302':
           description: Redirect to the identity provider logout endpoint
